@@ -1,24 +1,7 @@
 #################################################################
-Modified version by David Alonso, currently including:
- - f_NL
- - Parameter epsilon_GR characterizing GR effects (set to 1 for
-   the actual GR effects).
-The fiducial value for these parameters is 0 and 1 respectively,
-but other values can be provided in the parameter file (see
-explanatory_dam.ini).
-
-All modifications are included using the preprocessor macro
-_DAM_MOD. I.e.:
-
-#ifdef _DAM_MOD 
-... (modification here)
-#endif
-
-Hence the modifications can be reverted by commenting out the
-flag -D_DAM_MOD in the Makefile. A list of all modifications
-can be found by running 
-$> grep "DAM_MOD" -r *
-from the root directory
+Modified version by David Alonso. Changes are documented 
+in the README file inside the directory dam_test. It is highly
+recommended to read this README before attempting to use the code.
 #################################################################
 
 
