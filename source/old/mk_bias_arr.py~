@@ -1,0 +1,12 @@
+import numpy as np
+
+z0=0.2
+zf=2.0
+nz=128
+b0=1.5
+fname="bias_constant.txt"
+
+z_arr=z0+(zf-z0)*(np.arange(nz)+0.5)/nz
+barr=b0*np.ones(nz)
+
+np.savetxt(fname,np.transpose([z_arr,b_arr]))
