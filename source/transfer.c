@@ -2727,7 +2727,8 @@ int transfer_sources(
                      ptr->error_message);
 
           /* Source evolution, used by number counf rsd and number count gravity terms */
-          if ((_index_tt_in_range_(ptr->index_tt_d1,      ptr->selection_num, ppt->has_nc_rsd3)) ||
+          if ((_index_tt_in_range_(ptr->index_tt_d0,      ptr->selection_num, ppt->has_nc_rsd2)) ||
+	      (_index_tt_in_range_(ptr->index_tt_d1,      ptr->selection_num, ppt->has_nc_rsd3)) ||
               (_index_tt_in_range_(ptr->index_tt_nc_g2,   ptr->selection_num, ppt->has_nc_gr2))) {
 
             if((ptr->has_nz_evo_file == _TRUE_) || (ptr->has_nz_evo_analytic == _TRUE_)){
@@ -2807,7 +2808,7 @@ int transfer_sources(
             rescaling = selection[index_tau]/pvecback[pba->index_bg_H]/pvecback[pba->index_bg_a];
 
           if (_index_tt_in_range_(ptr->index_tt_d0,      ptr->selection_num, ppt->has_nc_rsd2))
-            rescaling = -3.*selection[index_tau]*pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]
+            rescaling = (f_evo-3.)*selection[index_tau]*pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]
               /ptr->k[index_md][index_q]/ptr->k[index_md][index_q];
 
           if (_index_tt_in_range_(ptr->index_tt_d1,      ptr->selection_num, ppt->has_nc_rsd3))
