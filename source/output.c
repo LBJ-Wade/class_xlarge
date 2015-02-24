@@ -129,12 +129,18 @@ int mpi_output_write_cls(struct spectra * psp,
   FILE **fo_dl=NULL;
   double *cl;
   
+  // PJB: This function opens all of the files first, then writes to them, then 
+  // closes them all again. For a large number of bins, this can exceed the 
+  // limit for the total no. of file descriptors set by `ulimit`. It does this 
+  // because there is an ell loop with a call to spectra_cl_at_l() which 
+  // fetches the Cl's for all combinations of transfers at once.
+  
   sprintf(prefix,"%s_cl",pop->root);
 
   cl=malloc(psp->ct_size*sizeof(double));
   if(cl==NULL)
     mpi_abort(1,"Out of memory!\n");
-
+  
   //Open files
   if(Mpi_this_node==0) {
     if(psp->has_tt==_TRUE_) {
