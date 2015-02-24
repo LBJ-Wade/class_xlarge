@@ -541,7 +541,7 @@ int input_read_parameters(
   int flag1,flag2,flag3;
   double param1,param2,param3;
   int N_ncdm=0,n,entries_read;
-  int int1,fileentries;
+  int int1, int2, fileentries;
   double fnu_factor;
   double * pointer1;
   char string1[_ARGUMENT_LENGTH_MAX_];
@@ -1845,11 +1845,29 @@ int input_read_parameters(
     if(fi==NULL)
       mpi_abort(1,"Couldn't open file %s\n",string1);
 
+    /* PJB: Determine total number of bins in selection fn. file */
     int1=0;
     while((fgets(ch,sizeof(ch),fi))!=NULL) {
       int1++;
     }
     rewind(fi);
+    
+    /* PJB: Manually limit total number of bins if requested */
+    class_call(parser_read_int(pfc, "max_zbin", &int2, &flag1, errmsg),
+               errmsg,
+               errmsg);
+               
+    if(flag1 == _TRUE_) {
+      if(int2 > int1){
+          mpi_printf("Warning: max_zbin is higher than the no. of bins in the "
+                     "selection_bins file (%d), so it has been ignored.\n", 
+                     int1);
+      }else{
+          mpi_printf("Warning: max_zbin has been set, so only the first %d/%d "
+                     "redshift bins will be used.\n", int2, int1);
+          int1 = int2;
+      }
+    }
     
     z_means=malloc(int1*sizeof(double));
     z_widths=malloc(int1*sizeof(double));
@@ -1886,11 +1904,14 @@ int input_read_parameters(
     ppt->selection_mean_min=z_means[0];
     free(z_means);
     free(z_widths);
-
+    
+    // PJB: Gracefully revert to default if non_diagonal set incorrectly
     class_read_int("non_diagonal",psp->non_diag);
     if ((psp->non_diag<0) || (psp->non_diag>=Mpi_nbins_total)) {
-      class_stop(errmsg,"Input for non_diagonal is %d, while it is expected to be between 0 and %d\n",
-		 psp->non_diag,ptr->selection_num-1);
+        printf("Warning: non_diagonal is %d, but is expected to be between "
+               "0 and %d. Setting non_diagonal=%d.\n", 
+               psp->non_diag, Mpi_nbins_total-1, Mpi_nbins_total-1);
+        psp->non_diag = Mpi_nbins_total;
     }
     mpi_distribute_spectra(Mpi_nbins_total,psp->non_diag);
 #ifdef _DAM_DEBUG

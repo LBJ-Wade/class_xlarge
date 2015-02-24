@@ -225,7 +225,7 @@ void mpi_print_bins(void)
     int id1=MIN(ii1,ii2);
     int id2=MAX(ii1,ii2);
 
-    printf(" %dx%d (%dx%d), ",Mpi_i1_cross[ii],Mpi_i2_cross[ii],id1,id2);
+    printf("%dx%d(%dx%d),",Mpi_i1_cross[ii],Mpi_i2_cross[ii],id1,id2);
   }
   printf("\n");
 }

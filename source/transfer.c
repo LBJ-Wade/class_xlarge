@@ -769,7 +769,6 @@ int transfer_init(
     /** - loop over all wavenumbers (parallelised). For each wavenumber: */
 
 #pragma omp for schedule (dynamic)
-
     for (index_q = 0; index_q < ptr->q_size; index_q++) {
 
 #ifdef _OPENMP
