@@ -23,21 +23,24 @@ struct transfers mpi_join_transfers(struct transfers *ptr,struct perturbs *ppt)
   ptr_glb.nz_z=NULL;
   ptr_glb.nz_nz=NULL;
   ptr_glb.nz_ddnz=NULL;
-  ptr_glb.has_nz_evo_file=0;
-  ptr_glb.has_nz_evo_analytic=0;
-  sprintf(ptr_glb.nz_evo_file_name,"shit");
-  ptr_glb.nz_evo_size=0;
-  ptr_glb.nz_evo_z=NULL;
-  ptr_glb.nz_evo_nz=NULL;
-  ptr_glb.nz_evo_dlog_nz=NULL;
-  ptr_glb.nz_evo_dd_dlog_nz=NULL;
   ptr_glb.has_bz_file=0;
-  ptr_glb.has_bz_analytic=0;
   sprintf(ptr_glb.bz_file_name,"shit");
   ptr_glb.bz_size=0;
   ptr_glb.bz_z=NULL;
   ptr_glb.bz_bz=NULL;
   ptr_glb.bz_ddbz=NULL;
+  ptr_glb.has_sz_file=0;
+  sprintf(ptr_glb.sz_file_name,"shit");
+  ptr_glb.sz_size=0;
+  ptr_glb.sz_z=NULL;
+  ptr_glb.sz_sz=NULL;
+  ptr_glb.sz_ddsz=NULL;
+  ptr_glb.has_ez_file=0;
+  sprintf(ptr_glb.ez_file_name,"shit");
+  ptr_glb.ez_size=0;
+  ptr_glb.ez_z=NULL;
+  ptr_glb.ez_ez=NULL;
+  ptr_glb.ez_ddez=NULL;
 
   ptr_glb.lcmb_rescale=ptr->lcmb_rescale;
   ptr_glb.lcmb_tilt=ptr->lcmb_tilt;
@@ -87,7 +90,11 @@ struct transfers mpi_join_transfers(struct transfers *ptr,struct perturbs *ppt)
   }
 
   //Reorganize transfer indices
+#ifdef _DAM_DEBUG
+  printf("Node %d: Reorganising transfer indices\n",Mpi_this_node);
+#else //_DAM_DEBUG
   mpi_printf("Reorganising transfer indices\n");
+#endif //_DAM_DEBUG
   int index_tt=0,index_tt_common;
 
   class_define_index(ptr_glb.index_tt_t2,ppt->has_cl_cmb_temperature,index_tt,1);
@@ -260,16 +267,28 @@ struct transfers mpi_join_transfers(struct transfers *ptr,struct perturbs *ppt)
 
   //Gather transfers
   ptr_glb.transfer=malloc(ptr_glb.md_size*sizeof(double *));
-  if(ptr_glb.transfer==NULL)
-    mpi_abort(1,"out of memory\n");
+  int ran_out=0;
+  if(ptr_glb.transfer==NULL) {
+    ran_out=1;
+    mpi_abort(1,"Some processes ran out of memory\n");
+  }
   for(ii=0;ii<ptr_glb.md_size;ii++) {
     int transfer_size=ptr_glb.tt_size[ii]*ptr_glb.l_size[ii]*ptr_glb.q_size;
     ptr_glb.transfer[ii]=malloc(transfer_size*sizeof(double));
-    if(ptr_glb.transfer[ii]==NULL)
-      mpi_abort(1,"out of memory %d\n",ii);
+    if(ptr_glb.transfer[ii]==NULL){
+      ran_out=1;
+      printf("Node %d: out of memory %d %d %d\n",Mpi_this_node,ii,ptr_glb.tt_size[ii],transfer_size);
+    }
   }
+  MPI_Barrier(MPI_COMM_WORLD);
+  if(ran_out)
+    mpi_abort(1,"Some processes ran out of memory\n");
 
+#ifdef _DAM_DEBUG
+  printf("Node %d: Copying CMB transfers\n",Mpi_this_node);
+#else //_DAM_DEBUG
   mpi_printf("Copying CMB transfers\n");
+#endif //_DAM_DEBUG
   //First just copy the CMB ones
   if(ppt->has_scalars==_TRUE_) {
     int index_md=ppt->index_md_scalars;
@@ -335,7 +354,11 @@ struct transfers mpi_join_transfers(struct transfers *ptr,struct perturbs *ppt)
   }
 
   //Now gather the number counts
+#ifdef _DAM_DEBUG
+  printf("Node %d: Gathering number counts transfers\n",Mpi_this_node);
+#else //_DAM_DEBUG
   mpi_printf("Gathering number counts transfers\n");
+#endif //_DAM_DEBUG
   if(ppt->has_scalars==_TRUE_) {
     int index_md=ppt->index_md_scalars;
     int size_this_transfer=ptr_glb.l_size[index_md]*ptr->q_size;
@@ -412,6 +435,9 @@ struct transfers mpi_join_transfers(struct transfers *ptr,struct perturbs *ppt)
   free(selection_num_allnodes);
   free(transfer_nelements);
   free(transfer_displ);
+#ifdef _DAM_DEBUG
+  printf("Node %d: Done gathering transfers\n",Mpi_this_node);
+#endif //_DAM_DEBUG
 
   return ptr_glb;
 }
@@ -464,11 +490,12 @@ int main(int argc, char **argv) {
   }
 
 #ifdef _DAM_MPI
+#ifdef _DAM_DEBUG
   printf("Node %d finished  transfers\n",Mpi_this_node);
+#endif //_DAM_DEBUG
   struct transfers tr_glb=mpi_join_transfers(&tr,&pt);
-  if(transfer_free(&tr) == _FAILURE_) {
+  if(transfer_free(&tr) == _FAILURE_)
     mpi_abort(1,"\n\nError in transfer_free \n=>%s\n",tr.error_message);
-  }
 
   if (spectra_init(&pr,&ba,&pt,&pm,&nl,&tr_glb,&sp) == _FAILURE_) {
     mpi_abort(1,"\n\nError in spectra_init \n=>%s\n",sp.error_message);

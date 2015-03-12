@@ -68,19 +68,23 @@ int nonlinear_init(
 
   if (pnl->method == nl_none) {
     if (pnl->nonlinear_verbose > 0)
-      printf("No non-linear spectra requested. Nonlinear module skipped.\n");
+      mpi_printf("No non-linear spectra requested. Nonlinear module skipped.\n");
   }
 
   /** (b) for HALOFIT non-linear spectrum */
 
   else if (pnl->method == nl_halofit) {
     if (pnl->nonlinear_verbose > 0)
-      printf("Computing non-linear matter power spectrum with Halofit (including update Takahashi et al. 2012 and Bird 2014)\n");
+      mpi_printf("Computing non-linear matter power spectrum with Halofit (including update "
+		 "Takahashi et al. 2012 and Bird 2014)\n");
 
     if (pba->has_ncdm) {
       for (index_ncdm=0;index_ncdm < pba->N_ncdm; index_ncdm++){
         if (pba->m_ncdm_in_eV[index_ncdm] >  _M_EV_TOO_BIG_FOR_HALOFIT_)
-          fprintf(stdout,"Warning: Halofit is proved to work for CDM, and also with a small HDM component thanks to Bird et al.'s update. But it sounds like you are running with a WDM component of mass %f eV, which makes the use of Halofit suspicious.\n",pba->m_ncdm_in_eV[index_ncdm]);
+          mpi_printf("Warning: Halofit is proved to work for CDM, and also with a small HDM component "
+		     "thanks to Bird et al.'s update. But it sounds like you are running with a WDM "
+		     "component of mass %f eV, which makes the use of Halofit suspicious.\n",
+		     pba->m_ncdm_in_eV[index_ncdm]);
       }
     }
 
@@ -111,12 +115,6 @@ int nonlinear_init(
                  pnl->error_message,
                  pnl->error_message);
 
-      /*
-      for (index_k=0; index_k<pnl->k_size; index_k++) {
-        fprintf(stdout,"%e  %e\n",pnl->k[index_k],pk_l[index_k]);
-      }
-      */
-
       //class_stop(pnl->error_message,"stop here");
 
       /* get P_NL(k) at this time */
@@ -129,13 +127,6 @@ int nonlinear_init(
                             pk_nl,
                             &(pnl->k_nl[index_tau])) == _SUCCESS_) {
 
-        /*
-          for (index_k=0; index_k<pnl->k_size; index_k++) {
-          fprintf(stdout,"%e  %e  %e\n",pnl->k[index_k],pk_l[index_k],pk_nl[index_k]);
-          }
-          fprintf(stdout,"\n\n");
-        */
-
         for (index_k=0; index_k<pnl->k_size; index_k++) {
           pnl->nl_corr_density[index_tau * pnl->k_size + index_k] = sqrt(pk_nl[index_k]/pk_l[index_k]);
         }
@@ -146,15 +137,6 @@ int nonlinear_init(
         }
       }
     }
-
-    /*
-    for (index_tau = pnl->tau_size-1; index_tau>=0; index_tau--) {
-      for (index_k=0; index_k<pnl->k_size; index_k++) {
-        fprintf(stdout,"%e  %e\n",pnl->k[index_k],pnl->nl_corr_density[index_tau * pnl->k_size + index_k]);
-      }
-      fprintf(stdout,"\n\n");
-    }
-    */
 
     free(pk_l);
     free(pk_nl);
@@ -418,14 +400,11 @@ int nonlinear_halofit(
     /* in original halofit, this is the end of the function wint() */
 
     diff = sigma - 1.0;
-    /*fprintf(stderr,"xlogr1 = %g, xlogr2 = %g, rmid = %g, diff: =%g, abs(diff) = %g\n",xlogr1,xlogr2,log10(rmid),diff,fabs(diff));*/
     if (diff>0.001){
       xlogr1=log10(rmid);
-      /*fprintf(stderr,"going up  , new xlogr1=%g\n",xlogr1);*/
     }
     else if (diff < -0.001) {
       xlogr2 = log10(rmid);
-      /*fprintf(stderr,"going down, new xlogr2=%g\n",xlogr2);*/
     }
 
     class_test_except(counter > _MAX_IT_,

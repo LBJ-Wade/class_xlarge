@@ -206,12 +206,12 @@ int primordial_init(
   if (ppt->has_perturbations == _FALSE_) {
     ppm->lnk_size=0;
     if (ppm->primordial_verbose > 0)
-      printf("No perturbations requested. Primordial module skipped.\n");
+      mpi_printf("No perturbations requested. Primordial module skipped.\n");
     return _SUCCESS_;
   }
   else {
     if (ppm->primordial_verbose > 0)
-      printf("Computing primordial spectra");
+      mpi_printf("Computing primordial spectra");
   }
 
   /** - get kmin and kmax from perturbation structure. Test that they make sense. */
@@ -262,7 +262,7 @@ int primordial_init(
   if (ppm->primordial_spec_type == analytic_Pk) {
 
     if (ppm->primordial_verbose > 0)
-      printf(" (analytic spectrum)\n");
+      mpi_printf(" (analytic spectrum)\n");
 
     class_call_except(primordial_analytic_spectrum_init(ppt,
                                                         ppm),
@@ -376,7 +376,7 @@ int primordial_init(
                ppm->error_message);
 
     if (ppm->primordial_verbose > 0)
-      printf(" (simulating inflation)\n");
+      mpi_printf(" (simulating inflation)\n");
 
     class_call_except(primordial_inflation_solve_inflation(ppt,ppm,ppr),
                       ppm->error_message,
@@ -402,7 +402,7 @@ int primordial_init(
                "external Pk module cannot work if you ask for isocurvature modes (but that could be implemented easily in the future!)");
 
     if (ppm->primordial_verbose > 0)
-      printf(" (Pk calculated externally)\n");
+      mpi_printf(" (Pk calculated externally)\n");
 
     class_call_except(primordial_external_spectrum_init(ppt,ppm),
                       ppm->error_message,
@@ -511,7 +511,7 @@ int primordial_init(
       ppm->beta_s = (lnpk_plusplus-2.*lnpk_plus+2.*lnpk_minus-lnpk_minusminus)/pow(dlnk,3);
 
       if (ppm->primordial_verbose > 0)
-        printf(" -> A_s=%g  n_s=%g  alpha_s=%g\n",ppm->A_s,ppm->n_s,ppm->alpha_s);
+        mpi_printf(" -> A_s=%g  n_s=%g  alpha_s=%g\n",ppm->A_s,ppm->n_s,ppm->alpha_s);
 
     }
 
@@ -546,7 +546,7 @@ int primordial_init(
       ppm->alpha_t = (lnpk_plus-2.*lnpk_pivot+lnpk_minus)/pow(dlnk,2);
 
       if (ppm->primordial_verbose > 0)
-        printf(" -> r=%g  n_r=%g  alpha_r=%g\n",ppm->r,ppm->n_t,ppm->alpha_t);
+        mpi_printf(" -> r=%g  n_r=%g  alpha_r=%g\n",ppm->r,ppm->n_t,ppm->alpha_t);
 
     }
 
@@ -1087,12 +1087,6 @@ int primordial_inflation_solve_inflation(
   int counter;
   double V,dV,ddV;
 
-  //  fprintf(stdout,"Expected slow-roll A_s: %g\n",128.*_PI_/3.*pow(ppm->V0,3)/pow(ppm->V1,2));
-  //  fprintf(stdout,"Expected slow-roll T/S: %g\n",pow(ppm->V1/ppm->V0,2)/_PI_);
-  //  fprintf(stdout,"Expected slow-roll A_T: %g\n",pow(ppm->V1/ppm->V0,2)/_PI_*128.*_PI_/3.*pow(ppm->V0,3)/pow(ppm->V1,2));
-  //  fprintf(stdout,"Expected slow-roll n_s: %g\n",1.-6./16./_PI_*pow(ppm->V1/ppm->V0,2)+2./8./_PI_*(ppm->V2/ppm->V0));
-  //  fprintf(stdout,"Expected slow-roll n_t: %g\n",-2./16./_PI_*pow(ppm->V1/ppm->V0,2));
-
   /* allocate vectors for background/perturbed quantitites */
   class_alloc(y,ppm->in_size*sizeof(double),ppm->error_message);
   class_alloc(y_ini,ppm->in_size*sizeof(double),ppm->error_message);
@@ -1105,7 +1099,7 @@ int primordial_inflation_solve_inflation(
                     free(y);free(y_ini);free(dy));
 
   if (ppm->primordial_verbose > 1)
-    printf(" (search attractor at pivot)\n");
+    mpi_printf(" (search attractor at pivot)\n");
 
   /* find value of phi_dot and H for field's pivot value, assuming slow-roll
      attractor solution has been reached. If no solution, code will
@@ -1136,7 +1130,7 @@ int primordial_inflation_solve_inflation(
   y[ppm->index_in_dphi] = a_pivot*dphidt_pivot;
 
   if (ppm->primordial_verbose > 1)
-    printf(" (check inflation duration after pivot)\n");
+    mpi_printf(" (check inflation duration after pivot)\n");
 
   class_call_except(primordial_inflation_reach_aH(ppm,
                                                   ppr,
@@ -1159,7 +1153,7 @@ int primordial_inflation_solve_inflation(
   counter = 0;
 
   if (ppm->primordial_verbose > 1)
-    printf(" (check inflation duration before pivot, with phi_pivot=%e)\n",phi_try);
+    mpi_printf(" (check inflation duration before pivot, with phi_pivot=%e)\n",phi_try);
 
   while ((a_try*H_try) >= aH_ini) {
 
@@ -1168,7 +1162,9 @@ int primordial_inflation_solve_inflation(
     class_test_except(counter >= ppr->primordial_inflation_phi_ini_maxit,
                       ppm->error_message,
                       free(y);free(y_ini);free(dy),
-                      "when searching for an initial value of phi just before observable inflation takes place, could not converge after %d iterations. The potential does not allow eough inflationary e-folds before reaching the pivot scale",
+                      "when searching for an initial value of phi just before observable inflation takes "
+		      "place, could not converge after %d iterations. The potential does not allow eough "
+		      "inflationary e-folds before reaching the pivot scale",
                       counter);
 
     class_call_except(primordial_inflation_potential(ppm,phi_try,&V,&dV,&ddV),
@@ -1178,7 +1174,7 @@ int primordial_inflation_solve_inflation(
 
     phi_try += ppr->primordial_inflation_jump_initial*log(a_try*H_try/aH_ini)*dV/V/8./_PI_;
 
-    printf(" (--> search attractor at phi_try=%e)\n",phi_try);
+    mpi_printf(" (--> search attractor at phi_try=%e)\n",phi_try);
 
     class_call_except(primordial_inflation_find_attractor(ppm,
                                                           ppr,
@@ -1197,7 +1193,8 @@ int primordial_inflation_solve_inflation(
     y[ppm->index_in_dphi] = y[ppm->index_in_a]*dphidt_try;
 
     if (ppm->primordial_verbose > 1)
-      printf(" (--> compute e-folds from phi_try=%e to phi_pivot=%e with dphi/dt_try=%e)\n",phi_try,ppm->phi_pivot,dphidt_try);
+      mpi_printf(" (--> compute e-folds from phi_try=%e to phi_pivot=%e with dphi/dt_try=%e)\n",
+		 phi_try,ppm->phi_pivot,dphidt_try);
 
     class_call_except(primordial_inflation_evolve_background(ppm,
                                                              ppr,
@@ -1211,7 +1208,7 @@ int primordial_inflation_solve_inflation(
     a_try = a_pivot/y[ppm->index_in_a];
 
     if (ppm->primordial_verbose > 1)
-      printf(" (--> found %f e-folds\n",-log(a_try));
+      mpi_printf(" (--> found %f e-folds\n",-log(a_try));
 
   }
 
@@ -1223,7 +1220,7 @@ int primordial_inflation_solve_inflation(
   y_ini[ppm->index_in_dphi] = a_try*dphidt_try;
 
   if (ppm->primordial_verbose > 1)
-    printf(" (compute spectrum)\n");
+    mpi_printf(" (compute spectrum)\n");
 
   /* statting from this time, we run the routine which takes care of computing the primordial spectrum. */
   class_call_except(primordial_inflation_spectra(ppt,
@@ -1257,7 +1254,7 @@ int primordial_inflation_solve_inflation(
   ppm->phi_max=y[ppm->index_in_phi];
 
   if (ppm->primordial_verbose > 1)
-    printf(" (observable power spectrum goes from %e to %e)\n",ppm->phi_min,ppm->phi_max);
+    mpi_printf(" (observable power spectrum goes from %e to %e)\n",ppm->phi_min,ppm->phi_max);
 
   /* we are done, we can de-allocate */
 
@@ -1344,11 +1341,6 @@ int primordial_inflation_spectra(
     /* store the obtained result for curvatute and tensor perturbations */
     ppm->lnpk[ppt->index_md_scalars][index_k] = log(curvature);
     ppm->lnpk[ppt->index_md_tensors][index_k] = log(tensors);
-
-    /* fprintf(stderr,"%e %e %e\n", */
-    /* 	    ppm->lnk[index_k], */
-    /* 	    ppm->lnpk[ppt->index_md_scalars][index_k], */
-    /* 	    ppm->lnpk[ppt->index_md_tensors][index_k]); */
 
   }
 
@@ -1498,8 +1490,6 @@ int primordial_inflation_one_k(
   ah2 = y[ppm->index_in_ah_re]*y[ppm->index_in_ah_re]+y[ppm->index_in_ah_im]*y[ppm->index_in_ah_im];
   *tensor = 32.*k*k*k/_PI_*ah2/y[ppm->index_in_a]/y[ppm->index_in_a];
 
-  //fprintf(stdout,"%g %g %g %g %g\n",k,*curvature,*tensor,*tensor/(*curvature),dlnPdN);
-
   return _SUCCESS_;
 }
 
@@ -1584,8 +1574,6 @@ int primordial_inflation_find_attractor(
 
   *dphidt_0 = dphidt_0new;
   *H_0 = sqrt((8.*_PI_/3.)*(0.5*dphidt_0new*dphidt_0new+V_0));
-
-  // fprintf(stderr,"attractor found with %g %g\n",*dphidt_0,*H_0);
 
   return _SUCCESS_;
 }
@@ -2015,7 +2003,7 @@ int primordial_external_spectrum_init(
   /* write the actual command in a string */
   sprintf(command_with_arguments, "%s %s", ppm->command, arguments);
   if (ppm->primordial_verbose > 0)
-    printf(" -> running: %s\n",command_with_arguments);
+    mpi_printf(" -> running: %s\n",command_with_arguments);
 
   /** 2. Launch the command and retrieve the output */
   /* Launch the process */
@@ -2117,13 +2105,6 @@ int primordial_external_spectrum_init(
     ppm->lnpk[ppt->index_md_scalars][index_k] = log(pks[index_k]);
     if (ppt->has_tensors == _TRUE_)
       ppm->lnpk[ppt->index_md_tensors][index_k] = log(pkt[index_k]);
-    /* DEBUG (with tensors)
-       fprintf(stderr,"Storing[%d(+1) of %d]: \n k = %g == %g\n pks = %g == %g\n pkt = %g == %g\n",
-       index_k, n_data,
-       ppm->lnk[index_k], log(k[index_k]),
-       ppm->lnpk[ppt->index_md_scalars][index_k], log(pks[index_k]),
-       ppm->lnpk[ppt->index_md_tensors][index_k], log(pkt[index_k]));
-    */
   };
   /** Release the memory used locally */
   free(k);

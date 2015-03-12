@@ -281,7 +281,7 @@ int thermodynamics_init(
   class_alloc(pvecback,pba->bg_size*sizeof(double),pba->error_message);
 
   if (pth->thermodynamics_verbose > 0)
-    printf("Computing thermodynamics");
+    mpi_printf("Computing thermodynamics");
 
   /** - compute and check primordial Helium fraction  */
 
@@ -291,11 +291,11 @@ int thermodynamics_init(
                pth->error_message,
                pth->error_message);
     if (pth->thermodynamics_verbose > 0)
-      printf(" with Y_He=%.4f\n",pth->YHe);
+      mpi_printf(" with Y_He=%.4f\n",pth->YHe);
   }
   else {
     if (pth->thermodynamics_verbose > 0)
-      printf("\n");
+      mpi_printf("\n");
   }
 
   class_test((pth->YHe < _YHE_SMALL_)||(pth->YHe > _YHE_BIG_),
@@ -337,8 +337,11 @@ int thermodynamics_init(
              "Parameter for DM annihilation in halos cannot be negative");
 
   if (pth->thermodynamics_verbose > 0)
-    if ((pth->annihilation >0) && (pth->reio_parametrization == reio_none) && (ppr->recfast_Heswitch >= 3) && (pth->recombination==recfast))
-      printf("Warning: if you have DM annihilation and you use recfast with option recfast_Heswitch >= 3, then the expression for CfHe_t and dy[1] becomes undefined at late times, producing nan's. This is however masked by reionization if you are not in reio_none mode.");
+    if ((pth->annihilation >0) && (pth->reio_parametrization == reio_none) && 
+	(ppr->recfast_Heswitch >= 3) && (pth->recombination==recfast))
+      mpi_printf("Warning: if you have DM annihilation and you use recfast with option recfast_Heswitch >= "
+		 "3, then the expression for CfHe_t and dy[1] becomes undefined at late times, producing "
+		 "nan's. This is however masked by reionization if you are not in reio_none mode.");
 
   class_test((pth->decay<0),
              pth->error_message,
@@ -697,29 +700,29 @@ int thermodynamics_init(
   /** - if verbose flag set to next-to-minimum value, print the main results */
 
   if (pth->thermodynamics_verbose > 0) {
-    printf(" -> recombination at z = %f\n",pth->z_rec);
-    printf("    corresponding to conformal time = %f Mpc\n",pth->tau_rec);
-    printf("    with comoving sound horizon = %f Mpc\n",pth->rs_rec);
-    printf("    angular diameter distance = %f Mpc\n",pth->da_rec);
-    printf("    and sound horizon angle 100*theta_s = %f\n",100.*pth->rs_rec/pth->ra_rec);
-    printf(" -> baryon drag stops at z = %f\n",pth->z_d);
-    printf("    corresponding to conformal time = %f Mpc\n",pth->tau_d);
-    printf("    with comoving sound horizon rs = %f Mpc\n",pth->rs_d);
+    mpi_printf(" -> recombination at z = %f\n",pth->z_rec);
+    mpi_printf("    corresponding to conformal time = %f Mpc\n",pth->tau_rec);
+    mpi_printf("    with comoving sound horizon = %f Mpc\n",pth->rs_rec);
+    mpi_printf("    angular diameter distance = %f Mpc\n",pth->da_rec);
+    mpi_printf("    and sound horizon angle 100*theta_s = %f\n",100.*pth->rs_rec/pth->ra_rec);
+    mpi_printf(" -> baryon drag stops at z = %f\n",pth->z_d);
+    mpi_printf("    corresponding to conformal time = %f Mpc\n",pth->tau_d);
+    mpi_printf("    with comoving sound horizon rs = %f Mpc\n",pth->rs_d);
     if ((pth->reio_parametrization == reio_camb) || (pth->reio_parametrization == reio_half_tanh)) {
       if (pth->reio_z_or_tau==reio_tau)
-        printf(" -> reionization  at z = %f\n",pth->z_reio);
+        mpi_printf(" -> reionization  at z = %f\n",pth->z_reio);
       if (pth->reio_z_or_tau==reio_z)
-        printf(" -> reionization with optical depth = %f\n",pth->tau_reio);
+        mpi_printf(" -> reionization with optical depth = %f\n",pth->tau_reio);
       class_call(background_tau_of_z(pba,pth->z_reio,&tau_reio),
                  pba->error_message,
                  pth->error_message);
-      printf("    corresponding to conformal time = %f Mpc\n",tau_reio);
+      mpi_printf("    corresponding to conformal time = %f Mpc\n",tau_reio);
     }
     if (pth->reio_parametrization == reio_bins_tanh) {
-      printf(" -> binned reionization gives optical depth = %f\n",pth->tau_reio);
+      mpi_printf(" -> binned reionization gives optical depth = %f\n",pth->tau_reio);
     }
     if (pth->thermodynamics_verbose > 1) {
-      printf(" -> free-streaming approximation can be turned on as soon as tau=%g Mpc\n",
+      mpi_printf(" -> free-streaming approximation can be turned on as soon as tau=%g Mpc\n",
              pth->tau_free_streaming);
     }
   }
@@ -2238,12 +2241,12 @@ int thermodynamics_recombination_with_hyrec(
   /** - Compute the recombination history by calling a function in hyrec (no CLASS-like error management here) */
 
   if (pth->thermodynamics_verbose > 0)
-    printf(" -> calling HyRec version %s,\n",HYREC_VERSION);
+    mpi_printf(" -> calling HyRec version %s,\n",HYREC_VERSION);
 
   rec_build_history(&param, &rate_table, &twog_params, xe_output, Tm_output);
 
   if (pth->thermodynamics_verbose > 0)
-    printf("    by Y. Ali-Haïmoud & C. Hirata\n");
+    mpi_printf("    by Y. Ali-Haïmoud & C. Hirata\n");
 
   /** - fill a few parameters in preco and pth */
 
@@ -2749,15 +2752,6 @@ int thermodynamics_recombination_with_recfast(
     /* dkappa/dtau = a n_e x_e sigma_T = a^{-2} n_e(today) x_e sigma_T (in units of 1/Mpc) */
     *(preco->recombination_table+(Nz-i-1)*preco->re_size+preco->index_re_dkappadtau)
       = (1.+zend) * (1.+zend) * preco->Nnow * x0 * _sigma_ * _Mpc_over_m_;
-
-    /* fprintf(stdout,"%e %e %e %e %e %e\n", */
-    /* 	    *(preco->recombination_table+(Nz-i-1)*preco->re_size+preco->index_re_z), */
-    /* 	    *(preco->recombination_table+(Nz-i-1)*preco->re_size+preco->index_re_xe), */
-    /* 	    *(preco->recombination_table+(Nz-i-1)*preco->re_size+preco->index_re_Tb), */
-    /* 	    (1.+zend) * dy[2], */
-    /* 	    *(preco->recombination_table+(Nz-i-1)*preco->re_size+preco->index_re_cb2), */
-    /* 	    *(preco->recombination_table+(Nz-i-1)*preco->re_size+preco->index_re_dkappadtau) */
-    /* 	    ); */
 
   }
 

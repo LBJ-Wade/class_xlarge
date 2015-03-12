@@ -1225,17 +1225,16 @@ int spectra_init(
       (ppt->has_velocity_transfers == _FALSE_)) {
     psp->md_size = 0;
     if (psp->spectra_verbose > 0)
-      printf("No spectra requested. Spectra module skipped.\n");
+      mpi_printf("No spectra requested. Spectra module skipped.\n");
     return _SUCCESS_;
   }
   else {
     if (psp->spectra_verbose > 0)
-      printf("Computing unlensed linear spectra\n");
+      mpi_printf("Computing unlensed linear spectra\n");
   }
 
   /** - initialize indices and allocate some of the arrays in the
       spectra structure */
-
   class_call(spectra_indices(pba,ppt,ptr,ppm,psp),
              psp->error_message,
              psp->error_message);
@@ -1243,11 +1242,15 @@ int spectra_init(
   /** - deal with C_l's, if any */
 
   if (ppt->has_cls == _TRUE_) {
-
+#ifdef _DAM_DEBUG
+    printf("Node %d: init spectra_cls\n",Mpi_this_node);
+#endif //_DAM_DEBUG
     class_call(spectra_cls(pba,ppt,ptr,ppm,psp),
                psp->error_message,
                psp->error_message);
-
+#ifdef _DAM_DEBUG
+    printf("Node %d: done spectra_cls\n",Mpi_this_node);
+#endif //_DAM_DEBUG
   }
   else {
     psp->ct_size=0;
@@ -1596,14 +1599,18 @@ int spectra_indices(
 
     if ((ppt->has_scalars == _TRUE_) &&
         ((ppt->has_cl_number_count == _TRUE_) || (ppt->has_cl_lensing_potential == _TRUE_)))
-      psp->d_size=ppt->selection_num;
+      psp->d_size=ptr->selection_num;
     else
       psp->d_size=0;
 
     if ((ppt->has_cl_number_count == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_dd = _TRUE_;
       psp->index_ct_dd=index_ct;
+#ifdef _DAM_MPI
+      index_ct+=Mpi_cross_here;
+#else //_DAM_MPI
       index_ct+=(psp->d_size*(psp->d_size+1)-(psp->d_size-psp->non_diag)*(psp->d_size-1-psp->non_diag))/2;
+#endif //_DAM_MPI
     }
     else {
       psp->has_dd = _FALSE_;
@@ -1618,7 +1625,11 @@ int spectra_indices(
        if ((ppt->has_cl_cmb_temperature == _TRUE_) && (ppt->has_cl_number_count == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
        psp->has_td = _TRUE_;
        psp->index_ct_td=index_ct;
+       #ifdef _DAM_MPI
+       index_ct+=Mpi_nbins_here;
+       #else //_DAM_MPI
        index_ct+=psp->d_size;
+       #endif //_DAM_MPI
        }
        else {
        psp->has_td = _FALSE_;
@@ -1629,7 +1640,11 @@ int spectra_indices(
     if ((ppt->has_cl_cmb_lensing_potential == _TRUE_) && (ppt->has_cl_number_count == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_pd = _TRUE_;
       psp->index_ct_pd=index_ct;
+#ifdef _DAM_MPI
+      index_ct+=Mpi_nbins_here;
+#else //_DAM_MPI
       index_ct+=psp->d_size;
+#endif //_DAM_MPI
     }
     else {
       psp->has_pd = _FALSE_;
@@ -1640,7 +1655,11 @@ int spectra_indices(
     if ((ppt->has_cl_lensing_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_ll = _TRUE_;
       psp->index_ct_ll=index_ct;
+#ifdef _DAM_MPI
+      index_ct+=Mpi_cross_here;
+#else //_DAM_MPI
       index_ct+=(psp->d_size*(psp->d_size+1)-(psp->d_size-psp->non_diag)*(psp->d_size-1-psp->non_diag))/2;
+#endif //_DAM_MPI
     }
     else {
       psp->has_ll = _FALSE_;
@@ -1655,7 +1674,11 @@ int spectra_indices(
        if ((ppt->has_cl_cmb_temperature == _TRUE_) && (ppt->has_cl_lensing_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
        psp->has_tl = _TRUE_;
        psp->index_ct_tl=index_ct;
+       #ifdef _DAM_MPI
+       index_ct+=Mpi_nbins_here;
+       #else //_DAM_MPI
        index_ct+=psp->d_size;
+       #endif //_DAM_MPI
        }
        else {
        psp->has_tl = _FALSE_;
@@ -1666,7 +1689,11 @@ int spectra_indices(
     if ((ppt->has_cl_number_count == _TRUE_) && (ppt->has_cl_lensing_potential == _TRUE_) && (ppt->has_scalars == _TRUE_)) {
       psp->has_dl = _TRUE_;
       psp->index_ct_dl=index_ct;
+#ifdef _DAM_MPI
+      index_ct+=Mpi_cross_here;
+#else //_DAM_MPI
       index_ct+=(psp->d_size*(psp->d_size+1)-(psp->d_size-psp->non_diag)*(psp->d_size-1-psp->non_diag))/2;
+#endif //_DAM_MPI
     }
     else {
       psp->has_dl = _FALSE_;
@@ -1697,42 +1724,89 @@ int spectra_indices(
 
       /* spectra computed up to l_lss_max */
 
+#ifdef _DAM_MPI
+      if (psp->has_dd == _TRUE_)
+        for (index_ct=psp->index_ct_dd;
+             index_ct<psp->index_ct_dd+Mpi_cross_here;
+             index_ct++)
+          psp->l_max_ct[ppt->index_md_scalars][index_ct] = ppt->l_lss_max;
+#else //_DAM_MPI
       if (psp->has_dd == _TRUE_)
         for (index_ct=psp->index_ct_dd;
              index_ct<psp->index_ct_dd+(psp->d_size*(psp->d_size+1)-(psp->d_size-psp->non_diag)*(psp->d_size-1-psp->non_diag))/2;
              index_ct++)
           psp->l_max_ct[ppt->index_md_scalars][index_ct] = ppt->l_lss_max;
+#endif //_DAM_MPI
 
+#ifdef _DAM_MPI
+      if (psp->has_td == _TRUE_)
+        for (index_ct=psp->index_ct_td;
+             index_ct<psp->index_ct_td+Mpi_nbins_here;
+             index_ct++)
+          psp->l_max_ct[ppt->index_md_scalars][index_ct] = MIN(ppt->l_scalar_max,ppt->l_lss_max);
+#else //_DAM_MPI
       if (psp->has_td == _TRUE_)
         for (index_ct=psp->index_ct_td;
              index_ct<psp->index_ct_td+psp->d_size;
              index_ct++)
           psp->l_max_ct[ppt->index_md_scalars][index_ct] = MIN(ppt->l_scalar_max,ppt->l_lss_max);
+#endif //_DAM_MPI
 
+#ifdef _DAM_MPI
+      if (psp->has_pd == _TRUE_)
+        for (index_ct=psp->index_ct_pd;
+             index_ct<psp->index_ct_pd+Mpi_nbins_here;
+             index_ct++)
+          psp->l_max_ct[ppt->index_md_scalars][index_ct] = MIN(ppt->l_scalar_max,ppt->l_lss_max);
+#else //_DAM_MPI
       if (psp->has_pd == _TRUE_)
         for (index_ct=psp->index_ct_pd;
              index_ct<psp->index_ct_pd+psp->d_size;
              index_ct++)
           psp->l_max_ct[ppt->index_md_scalars][index_ct] = MIN(ppt->l_scalar_max,ppt->l_lss_max);
+#endif //_DAM_MPI
 
+#ifdef _DAM_MPI
+      if (psp->has_ll == _TRUE_)
+        for (index_ct=psp->index_ct_ll;
+             index_ct<psp->index_ct_ll+Mpi_cross_here;
+             index_ct++)
+          psp->l_max_ct[ppt->index_md_scalars][index_ct] = ppt->l_lss_max;
+#else //_DAM_MPI
       if (psp->has_ll == _TRUE_)
         for (index_ct=psp->index_ct_ll;
              index_ct<psp->index_ct_ll+(psp->d_size*(psp->d_size+1)-(psp->d_size-psp->non_diag)*(psp->d_size-1-psp->non_diag))/2;
              index_ct++)
           psp->l_max_ct[ppt->index_md_scalars][index_ct] = ppt->l_lss_max;
+#endif //_DAM_MPI
 
+#ifdef _DAM_MPI
+      if (psp->has_tl == _TRUE_)
+        for (index_ct=psp->index_ct_tl;
+             index_ct<psp->index_ct_tl+Mpi_nbins_here;
+             index_ct++)
+          psp->l_max_ct[ppt->index_md_scalars][index_ct] = MIN(ppt->l_scalar_max,ppt->l_lss_max);
+#else //_DAM_MPI
       if (psp->has_tl == _TRUE_)
         for (index_ct=psp->index_ct_tl;
              index_ct<psp->index_ct_tl+psp->d_size;
              index_ct++)
           psp->l_max_ct[ppt->index_md_scalars][index_ct] = MIN(ppt->l_scalar_max,ppt->l_lss_max);
+#endif //_DAM_MPI
 
+#ifdef _DAM_MPI
+      if (psp->has_dl == _TRUE_)
+        for (index_ct=psp->index_ct_dl;
+             index_ct<psp->index_ct_dl+Mpi_cross_here;
+             index_ct++)
+          psp->l_max_ct[ppt->index_md_scalars][index_ct] = ppt->l_lss_max;
+#else //_DAM_MPI
       if (psp->has_dl == _TRUE_)
         for (index_ct=psp->index_ct_dl;
              index_ct<psp->index_ct_dl+(psp->d_size*(psp->d_size+1)-(psp->d_size-psp->non_diag)*(psp->d_size-1-psp->non_diag))/2;
              index_ct++)
           psp->l_max_ct[ppt->index_md_scalars][index_ct] = ppt->l_lss_max;
-
+#endif//_DAM_MPI
     }
     if (ppt->has_tensors == _TRUE_) {
 
@@ -1965,14 +2039,13 @@ int spectra_cls(
                                                      transfer_ic2),
                                   psp->error_message,
                                   psp->error_message);
-
             } /* end of loop over l */
 
 #ifdef _OPENMP
             tstop = omp_get_wtime();
             if (psp->spectra_verbose > 1)
-              printf("In %s: time spent in parallel region (loop over l's) = %e s for thread %d\n",
-                     __func__,tstop-tstart,omp_get_thread_num());
+              mpi_printf("In %s: time spent in parallel region (loop over l's) = %e s for thread %d\n",
+			 __func__,tstop-tstart,omp_get_thread_num());
 #endif
             free(cl_integrand);
 
@@ -2073,11 +2146,13 @@ int spectra_compute_cl(
   double factor;
   int index_q_spline=0;
 
-#ifdef _DAM_MOD
   double greps=pba->gr_epsilon;
-#else
-  double greps=1;
-#endif //_DAM_MOD
+
+#ifdef _DAM_MPI
+  int *cl_calculated=calloc(psp->ct_size,sizeof(int));
+  if(cl_calculated==NULL)
+    mpi_abort(1,"Baaaaad thing\n");
+#endif //_DAM_MPI
 
   index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md]);
 
@@ -2097,7 +2172,7 @@ int spectra_compute_cl(
                ppm->error_message,
                psp->error_message);
 
-    /* above routine checks that k>0: no possible division by zero below */
+    // above routine checks that k>0: no possible division by zero below
 
     for (index_tt=0; index_tt < ptr->tt_size[index_md]; index_tt++) {
 
@@ -2118,10 +2193,10 @@ int spectra_compute_cl(
       }
     }
 
-    /* define combinations of transfer functions */
+    // define combinations of transfer functions
 
     if (ppt->has_cl_cmb_temperature == _TRUE_) {
-
+      
       if (_scalars_) {
 
         transfer_ic1_temp = transfer_ic1[ptr->index_tt_t0] + transfer_ic1[ptr->index_tt_t1] + transfer_ic1[ptr->index_tt_t2];
@@ -2156,18 +2231,6 @@ int spectra_compute_cl(
           transfer_ic2_nc[index_d1] += transfer_ic2[ptr->index_tt_density+index_d1];
         }
 
-#ifndef _DAM_MOD
-        if (ppt->has_nc_rsd     == _TRUE_) {
-          transfer_ic1_nc[index_d1]
-            += transfer_ic1[ptr->index_tt_rsd+index_d1]
-            + transfer_ic1[ptr->index_tt_d0+index_d1]
-            + transfer_ic1[ptr->index_tt_d1+index_d1];
-          transfer_ic2_nc[index_d1]
-            += transfer_ic2[ptr->index_tt_rsd+index_d1]
-            + transfer_ic2[ptr->index_tt_d0+index_d1]
-            + transfer_ic2[ptr->index_tt_d1+index_d1];
-        }
-#else //_DAM_MOD
         if (ppt->has_nc_rsd1    == _TRUE_) {
           transfer_ic1_nc[index_d1]
             += transfer_ic1[ptr->index_tt_rsd+index_d1];
@@ -2186,7 +2249,6 @@ int spectra_compute_cl(
           transfer_ic2_nc[index_d1]
 	    +=greps*transfer_ic2[ptr->index_tt_d1+index_d1];
 	}
-#endif //_DAM_MOD
 
         if (ppt->has_nc_lens == _TRUE_) {
           transfer_ic1_nc[index_d1] +=
@@ -2195,22 +2257,6 @@ int spectra_compute_cl(
             psp->l[index_l]*(psp->l[index_l]+1.)*transfer_ic2[ptr->index_tt_nc_lens+index_d1];
         }
 
-#ifndef _DAM_MOD
-        if (ppt->has_nc_gr == _TRUE_) {
-          transfer_ic1_nc[index_d1]
-            += transfer_ic1[ptr->index_tt_nc_g1+index_d1]
-            + transfer_ic1[ptr->index_tt_nc_g2+index_d1]
-            + transfer_ic1[ptr->index_tt_nc_g3+index_d1]
-            + transfer_ic1[ptr->index_tt_nc_g4+index_d1]
-            + transfer_ic1[ptr->index_tt_nc_g5+index_d1];
-          transfer_ic2_nc[index_d1]
-            += transfer_ic2[ptr->index_tt_nc_g1+index_d1]
-            + transfer_ic2[ptr->index_tt_nc_g2+index_d1]
-            + transfer_ic2[ptr->index_tt_nc_g3+index_d1]
-            + transfer_ic2[ptr->index_tt_nc_g4+index_d1]
-            + transfer_ic2[ptr->index_tt_nc_g5+index_d1];
-        }
-#else //_DAM_MOD
         if (ppt->has_nc_gr1 == _TRUE_) {
           transfer_ic1_nc[index_d1] +=
 	    greps*transfer_ic1[ptr->index_tt_nc_g1+index_d1];
@@ -2241,120 +2287,172 @@ int spectra_compute_cl(
           transfer_ic2_nc[index_d1] +=
 	    greps*transfer_ic2[ptr->index_tt_nc_g5+index_d1];
 	}
-#endif //_DAM_MOD
 
       }
     }
+    // integrand of Cl's
 
-    /* integrand of Cl's */
-
-    /* note: we must integrate
-
-       C_l = int [4 pi dk/k calP(k) Delta1_l(q) Delta2_l(q)]
-
-       where calP(k) is the dimensionless
-       power spectrum equal to a constant in the scale-invariant case,
-       and to P(k) = A_s k^(ns-1) otherwise and q=sqrt(k2+K) (scalars)
-       or sqrt(k2+2K) (vectors) or sqrt(k2+3K) (tensors)
-
-       In the literature, people often rewrite the integral in terms
-       of q and absorb the Jacobian of the change of variables in a redefinition of the primodial
-       spectrum. Let us illustrate this for scalars:
-
-       dk/k = kdk/k2 = qdq/k2 = dq/q * (q/k)^2 = dq/q * [q2/(q2-K)] = q2dq * 1/[q(q2-K)]
-
-       This factor 1/[q(q2-K)] is commonly absorbed in the definition of calP. Then one would have
-
-       C_l = int [4 pi q2 dq {A_s k^(ns-1)/[q(q2-K)]} Delta1_l(q) Delta2_l(q)]
-
-       Sometimes in the literature, the factor (k2-3K)=(q2-4K) present
-       in the initial conditions of scalar transfer functions (if
-       normalized to curvature R=1) is also absorbed in the definition
-       of the power spectrum. Then the curvature power spectrum reads
-
-       calP = (q2-4K)/[q(q2-K)] * (k/k)^ns
-
-       In CLASS we prefer to define calP = (k/k)^ns like in the flat
-       case, to have the factor (q2-4K) in the initialk conditions,
-       and the factor 1/[q(q2-K)] doesn't need to be there since we
-       integrate over dk/k.
-
-       For tensors, the change of variable described above gives a slightly different result:
-
-       dk/k = kdk/k2 = qdq/k2 = dq/q * (q/k)^2 = dq/q * [q2/(q2-3K)] = q2dq * 1/[q(q2-3K)]
-
-       But for tensors there are extra curvature-related correction factors to
-       take into account. See the comments in the perturbation module,
-       related to initial conditions for tensors.
-
-    */
+    // note: we must integrate
+    //
+    //C_l = int [4 pi dk/k calP(k) Delta1_l(q) Delta2_l(q)]
+    //
+    //where calP(k) is the dimensionless
+    //power spectrum equal to a constant in the scale-invariant case,
+    //and to P(k) = A_s k^(ns-1) otherwise and q=sqrt(k2+K) (scalars)
+    //or sqrt(k2+2K) (vectors) or sqrt(k2+3K) (tensors)
+    //
+    //In the literature, people often rewrite the integral in terms
+    //of q and absorb the Jacobian of the change of variables in a redefinition of the primodial
+    //spectrum. Let us illustrate this for scalars:
+    //
+    //dk/k = kdk/k2 = qdq/k2 = dq/q * (q/k)^2 = dq/q * [q2/(q2-K)] = q2dq * 1/[q(q2-K)]
+    //
+    //This factor 1/[q(q2-K)] is commonly absorbed in the definition of calP. Then one would have
+    //
+    //C_l = int [4 pi q2 dq {A_s k^(ns-1)/[q(q2-K)]} Delta1_l(q) Delta2_l(q)]
+    //
+    //Sometimes in the literature, the factor (k2-3K)=(q2-4K) present
+    //in the initial conditions of scalar transfer functions (if
+    //normalized to curvature R=1) is also absorbed in the definition
+    //of the power spectrum. Then the curvature power spectrum reads
+    //
+    //calP = (q2-4K)/[q(q2-K)] * (k/k)^ns
+    //
+    //In CLASS we prefer to define calP = (k/k)^ns like in the flat
+    //case, to have the factor (q2-4K) in the initialk conditions,
+    //and the factor 1/[q(q2-K)] doesn't need to be there since we
+    //integrate over dk/k.
+    //
+    //For tensors, the change of variable described above gives a slightly different result:
+    //
+    //dk/k = kdk/k2 = qdq/k2 = dq/q * (q/k)^2 = dq/q * [q2/(q2-3K)] = q2dq * 1/[q(q2-3K)]
+    //
+    //But for tensors there are extra curvature-related correction factors to
+    //take into account. See the comments in the perturbation module,
+    //related to initial conditions for tensors.
+    //
 
     factor = 4. * _PI_ / k;
 
-    if (psp->has_tt == _TRUE_)
+    if (psp->has_tt == _TRUE_) {
       cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_tt]=
         primordial_pk[index_ic1_ic2]
         * transfer_ic1_temp
         * transfer_ic2_temp
         * factor;
+#ifdef _DAM_MPI
+      cl_calculated[psp->index_ct_tt]=1;
+#endif //_DAM_MPI
+    }
 
-    if (psp->has_ee == _TRUE_)
+    if (psp->has_ee == _TRUE_) {
       cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_ee]=
         primordial_pk[index_ic1_ic2]
         * transfer_ic1[ptr->index_tt_e]
         * transfer_ic2[ptr->index_tt_e]
         * factor;
+#ifdef _DAM_MPI
+      cl_calculated[psp->index_ct_ee]=1;
+#endif //_DAM_MPI
+    }
 
-    if (psp->has_te == _TRUE_)
+    if (psp->has_te == _TRUE_) {
       cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_te]=
         primordial_pk[index_ic1_ic2]
         * 0.5*(transfer_ic1_temp * transfer_ic2[ptr->index_tt_e] +
                transfer_ic1[ptr->index_tt_e] * transfer_ic2_temp)
         * factor;
+#ifdef _DAM_MPI
+      cl_calculated[psp->index_ct_te]=1;
+#endif //_DAM_MPI
+    }
 
-    if (_tensors_ && (psp->has_bb == _TRUE_))
+    if (_tensors_ && (psp->has_bb == _TRUE_)) {
       cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_bb]=
         primordial_pk[index_ic1_ic2]
         * transfer_ic1[ptr->index_tt_b]
         * transfer_ic2[ptr->index_tt_b]
         * factor;
+#ifdef _DAM_MPI
+      cl_calculated[psp->index_ct_bb]=1;
+#endif //_DAM_MPI
+    }
 
-    if (_scalars_ && (psp->has_pp == _TRUE_))
+    if (_scalars_ && (psp->has_pp == _TRUE_)) {
       cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_pp]=
         primordial_pk[index_ic1_ic2]
         * transfer_ic1[ptr->index_tt_lcmb]
         * transfer_ic2[ptr->index_tt_lcmb]
         * factor;
+#ifdef _DAM_MPI
+      cl_calculated[psp->index_ct_pp]=1;
+#endif //_DAM_MPI
+    }
 
-    if (_scalars_ && (psp->has_tp == _TRUE_))
+    if (_scalars_ && (psp->has_tp == _TRUE_)) {
       cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_tp]=
         primordial_pk[index_ic1_ic2]
         * 0.5*(transfer_ic1_temp * transfer_ic2[ptr->index_tt_lcmb] +
                transfer_ic1[ptr->index_tt_lcmb] * transfer_ic2_temp)
         * factor;
+#ifdef _DAM_MPI
+      cl_calculated[psp->index_ct_tp]=1;
+#endif //_DAM_MPI
+    }
 
-    if (_scalars_ && (psp->has_ep == _TRUE_))
+    if (_scalars_ && (psp->has_ep == _TRUE_)) {
       cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_ep]=
         primordial_pk[index_ic1_ic2]
         * 0.5*(transfer_ic1[ptr->index_tt_e] * transfer_ic2[ptr->index_tt_lcmb] +
                transfer_ic1[ptr->index_tt_lcmb] * transfer_ic2[ptr->index_tt_e])
         * factor;
+#ifdef _DAM_MPI
+      cl_calculated[psp->index_ct_ep]=1;
+#endif //_DAM_MPI
+    }
 
     if (_scalars_ && (psp->has_dd == _TRUE_)) {
+#ifdef _DAM_MPI
+      int ii;
+      for(ii=0;ii<Mpi_cross_here;ii++) {
+	index_d1=Mpi_i1_cross[ii];
+	index_d2=Mpi_i2_cross[ii];
+	cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_dd+ii]=
+	  primordial_pk[index_ic1_ic2]
+	  * transfer_ic1_nc[index_d1]
+	  * transfer_ic2_nc[index_d2]
+	  * factor;
+	cl_calculated[psp->index_ct_dd+ii]=1;
+      }
+#else //_DAM_MPI
       index_ct=0;
+
       for (index_d1=0; index_d1<psp->d_size; index_d1++) {
         for (index_d2=index_d1; index_d2<=MIN(index_d1+psp->non_diag,psp->d_size-1); index_d2++) {
-          cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_dd+index_ct]=
-            primordial_pk[index_ic1_ic2]
-            * transfer_ic1_nc[index_d1]
-            * transfer_ic2_nc[index_d2]
-            * factor;
-          index_ct++;
-        }
+	  cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_dd+index_ct]=
+	    primordial_pk[index_ic1_ic2]
+	    * transfer_ic1_nc[index_d1]
+	    * transfer_ic2_nc[index_d2]
+	    * factor;
+	  index_ct++;
+	}
       }
+#endif //_DAM_MPI
     }
 
     if (_scalars_ && (psp->has_td == _TRUE_)) {
+#ifdef _DAM_MPI
+      int ii;
+      for(ii=0;ii<Mpi_nbins_here;ii++) {
+	index_d1=Mpi_bin_ids_here[ii];
+        cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_td+ii]=
+          primordial_pk[index_ic1_ic2]
+          * 0.5*(transfer_ic1_temp * transfer_ic2_nc[index_d1] +
+                 transfer_ic1_nc[index_d1] * transfer_ic2_temp)
+          * factor;
+	cl_calculated[psp->index_ct_td+ii]=1;
+      }
+#else //_DAM_MPI
       for (index_d1=0; index_d1<psp->d_size; index_d1++) {
         cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_td+index_d1]=
           primordial_pk[index_ic1_ic2]
@@ -2362,9 +2460,22 @@ int spectra_compute_cl(
                  transfer_ic1_nc[index_d1] * transfer_ic2_temp)
           * factor;
       }
+#endif //_DAM_MPI
     }
 
     if (_scalars_ && (psp->has_pd == _TRUE_)) {
+#ifdef _DAM_MPI
+      int ii;
+      for(ii=0;ii<Mpi_nbins_here;ii++) {
+	index_d1=Mpi_bin_ids_here[ii];
+        cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_pd+ii]=
+          primordial_pk[index_ic1_ic2]
+          * 0.5*(transfer_ic1[ptr->index_tt_lcmb] * transfer_ic2_nc[index_d1] +
+                 transfer_ic1_nc[index_d1] * transfer_ic2[ptr->index_tt_lcmb])
+          * factor;
+	cl_calculated[psp->index_ct_pd+ii]=1;
+      }
+#else //_DAM_MPI
       for (index_d1=0; index_d1<psp->d_size; index_d1++) {
         cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_pd+index_d1]=
           primordial_pk[index_ic1_ic2]
@@ -2372,10 +2483,25 @@ int spectra_compute_cl(
                  transfer_ic1_nc[index_d1] * transfer_ic2[ptr->index_tt_lcmb])
           * factor;
       }
+#endif //_DAM_MPI
     }
 
     if (_scalars_ && (psp->has_ll == _TRUE_)) {
+#ifdef _DAM_MPI
+      int ii;
+      for(ii=0;ii<Mpi_cross_here;ii++) {
+	index_d1=Mpi_i1_cross[ii];
+	index_d2=Mpi_i2_cross[ii];
+	cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_ll+ii]=
+	  primordial_pk[index_ic1_ic2]
+	  * transfer_ic1[ptr->index_tt_lensing+index_d1]
+	  * transfer_ic2[ptr->index_tt_lensing+index_d2]
+	  * factor;
+	cl_calculated[psp->index_ct_ll+ii]=1;
+      }
+#else //_DAM_MPI
       index_ct=0;
+
       for (index_d1=0; index_d1<psp->d_size; index_d1++) {
         for (index_d2=index_d1; index_d2<=MIN(index_d1+psp->non_diag,psp->d_size-1); index_d2++) {
           cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_ll+index_ct]=
@@ -2386,9 +2512,22 @@ int spectra_compute_cl(
           index_ct++;
         }
       }
+#endif //_DAM_MPI
     }
 
     if (_scalars_ && (psp->has_tl == _TRUE_)) {
+#ifdef _DAM_MPI
+      int ii;
+      for(ii=0;ii<Mpi_nbins_here;ii++) {
+	index_d1=Mpi_bin_ids_here[ii];
+        cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_tl+ii]=
+          primordial_pk[index_ic1_ic2]
+          * 0.5*(transfer_ic1_temp * transfer_ic2[ptr->index_tt_lensing+index_d1] +
+                 transfer_ic1[ptr->index_tt_lensing+index_d1] * transfer_ic2_temp)
+          * factor;
+	cl_calculated[psp->index_ct_tl+ii]=1;
+      }
+#else //_DAM_MPI
       for (index_d1=0; index_d1<psp->d_size; index_d1++) {
         cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_tl+index_d1]=
           primordial_pk[index_ic1_ic2]
@@ -2396,10 +2535,25 @@ int spectra_compute_cl(
                  transfer_ic1[ptr->index_tt_lensing+index_d1] * transfer_ic2_temp)
           * factor;
       }
+#endif //_DAM_MPI
     }
 
     if (_scalars_ && (psp->has_dl == _TRUE_)) {
+#ifdef _DAM_MPI
+      int ii;
+      for(ii=0;ii<Mpi_cross_here;ii++) {
+	index_d1=Mpi_i1_cross[ii];
+	index_d2=Mpi_i2_cross[ii];
+	cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_dl+ii]=
+	  primordial_pk[index_ic1_ic2]
+	  * 0.5*(transfer_ic1_nc[index_d1] * transfer_ic2[ptr->index_tt_lensing+index_d2] +
+		 transfer_ic1[ptr->index_tt_lensing+index_d1] * transfer_ic2_nc[index_d2])
+	  * factor;
+	cl_calculated[psp->index_ct_dl+ii]=1;
+      }
+#else //_DAM_MPI
       index_ct=0;
+
       for (index_d1=0; index_d1<psp->d_size; index_d1++) {
         for (index_d2=index_d1; index_d2<=MIN(index_d1+psp->non_diag,psp->d_size-1); index_d2++) {
           cl_integrand[index_q*cl_integrand_num_columns+1+psp->index_ct_dl+index_ct]=
@@ -2410,33 +2564,35 @@ int spectra_compute_cl(
           index_ct++;
         }
       }
+#endif //_DAM_MPI
     }
   }
 
   for (index_ct=0; index_ct<psp->ct_size; index_ct++) {
-
-    /* treat null spectra (C_l^BB of scalars, C_l^pp of tensors, etc. */
-
+    
+    // treat null spectra (C_l^BB of scalars, C_l^pp of tensors, etc.
     if ((_scalars_ && (psp->has_bb == _TRUE_) && (index_ct == psp->index_ct_bb)) ||
-        (_tensors_ && (psp->has_pp == _TRUE_) && (index_ct == psp->index_ct_pp)) ||
-        (_tensors_ && (psp->has_tp == _TRUE_) && (index_ct == psp->index_ct_tp)) ||
-        (_tensors_ && (psp->has_ep == _TRUE_) && (index_ct == psp->index_ct_ep)) ||
-        (_tensors_ && (psp->has_dd == _TRUE_) && (index_ct == psp->index_ct_dd)) ||
-        (_tensors_ && (psp->has_td == _TRUE_) && (index_ct == psp->index_ct_td)) ||
-        (_tensors_ && (psp->has_pd == _TRUE_) && (index_ct == psp->index_ct_pd)) ||
-        (_tensors_ && (psp->has_ll == _TRUE_) && (index_ct == psp->index_ct_ll)) ||
-        (_tensors_ && (psp->has_tl == _TRUE_) && (index_ct == psp->index_ct_tl)) ||
-        (_tensors_ && (psp->has_dl == _TRUE_) && (index_ct == psp->index_ct_dl))
-        ) {
-
+	(_tensors_ && (psp->has_pp == _TRUE_) && (index_ct == psp->index_ct_pp)) ||
+	(_tensors_ && (psp->has_tp == _TRUE_) && (index_ct == psp->index_ct_tp)) ||
+	(_tensors_ && (psp->has_ep == _TRUE_) && (index_ct == psp->index_ct_ep)) ||
+	(_tensors_ && (psp->has_dd == _TRUE_) && (index_ct == psp->index_ct_dd)) ||
+	(_tensors_ && (psp->has_td == _TRUE_) && (index_ct == psp->index_ct_td)) ||
+	(_tensors_ && (psp->has_pd == _TRUE_) && (index_ct == psp->index_ct_pd)) ||
+	(_tensors_ && (psp->has_ll == _TRUE_) && (index_ct == psp->index_ct_ll)) ||
+	(_tensors_ && (psp->has_tl == _TRUE_) && (index_ct == psp->index_ct_tl)) ||
+	(_tensors_ && (psp->has_dl == _TRUE_) && (index_ct == psp->index_ct_dl))) {
+      
       psp->cl[index_md]
         [(index_l * psp->ic_ic_size[index_md] + index_ic1_ic2) * psp->ct_size + index_ct] = 0.;
-
+      
     }
-    /* for non-zero spectra, integrate over q */
+    else if(cl_calculated[index_ct]==0) {
+      mpi_abort(1,"All Cls should be calculated\n");
+    }
+    // for non-zero spectra, integrate over q
     else {
 
-      /* spline the integrand over the whole range of k's */
+      // spline the integrand over the whole range of k's
 
       class_call(array_spline(cl_integrand,
                               cl_integrand_num_columns,
@@ -2449,20 +2605,20 @@ int spectra_compute_cl(
                  psp->error_message,
                  psp->error_message);
 
-      /* Technical point: we will now do a spline integral over the
-         whole range of k's, excepted in the closed (K>0) case. In
-         that case, it is a bad idea to spline over the values of k
-         corresponding to nu<nu_flat_approximation. In this region, nu
-         values are integer values, so the steps dq and dk have some
-         discrete jumps. This makes the spline routine less accurate
-         than a trapezoidal integral with finer sampling. So, in the
-         closed case, we set index_q_spline to
-         ptr->index_q_flat_approximation, to tell the integration
-         routine that below this index, it should treat the integral
-         as a trapezoidal one. For testing, one is free to set
-         index_q_spline to 0, to enforce spline integration
-         everywhere, or to (ptr->q_size-1), to enforce trapezoidal
-         integration everywhere. */
+      // Technical point: we will now do a spline integral over the
+      //whole range of k's, excepted in the closed (K>0) case. In
+      //that case, it is a bad idea to spline over the values of k
+      //corresponding to nu<nu_flat_approximation. In this region, nu
+      //values are integer values, so the steps dq and dk have some
+      //discrete jumps. This makes the spline routine less accurate
+      //than a trapezoidal integral with finer sampling. So, in the
+      //closed case, we set index_q_spline to
+      //ptr->index_q_flat_approximation, to tell the integration
+      //routine that below this index, it should treat the integral
+      //as a trapezoidal one. For testing, one is free to set
+      //index_q_spline to 0, to enforce spline integration
+      //everywhere, or to (ptr->q_size-1), to enforce trapezoidal
+      //integration everywhere.
 
       if (pba->sgnK == 1) {
         index_q_spline = ptr->index_q_flat_approximation;
@@ -2480,21 +2636,20 @@ int spectra_compute_cl(
                  psp->error_message,
                  psp->error_message);
 
-      /* in the closed case, instead of an integral, we have a
-         discrete sum. In practise, this does not matter: the previous
-         routine does give a correct approximation of the discrete
-         sum, both in the trapezoidal and spline regions. The only
-         error comes from the first point: the previous routine
-         assumes a weight for the first point which is too small
-         compared to what it would be in the an actual discrete
-         sum. The line below correct this problem in an exact way.
-      */
+      // in the closed case, instead of an integral, we have a
+      //discrete sum. In practise, this does not matter: the previous
+      //routine does give a correct approximation of the discrete
+      //sum, both in the trapezoidal and spline regions. The only
+      //error comes from the first point: the previous routine
+      //assumes a weight for the first point which is too small
+      //compared to what it would be in the an actual discrete
+      //sum. The line below correct this problem in an exact way.
 
       if (pba->sgnK == 1) {
         clvalue += cl_integrand[1+index_ct] * ptr->q[0]/ptr->k[0][0]*sqrt(pba->K)/2.;
       }
 
-      /* we have the correct C_l now. We can store it in the transfer structure. */
+      // we have the correct C_l now. We can store it in the transfer structure.
 
       psp->cl[index_md]
         [(index_l * psp->ic_ic_size[index_md] + index_ic1_ic2) * psp->ct_size + index_ct]
@@ -2508,6 +2663,9 @@ int spectra_compute_cl(
     free(transfer_ic2_nc);
   }
 
+#ifdef _DAM_MPI
+  free(cl_calculated);
+#endif //_DAM_MPI
   return _SUCCESS_;
 
 }
@@ -2771,9 +2929,9 @@ int spectra_pk(
              psp->error_message);
 
   if (psp->spectra_verbose>0)
-    fprintf(stdout," -> sigma8=%g (computed till k = %g h/Mpc)\n",
-            psp->sigma8,
-            exp(psp->ln_k[psp->ln_k_size-1])/pba->h);
+    mpi_printf(" -> sigma8=%g (computed till k = %g h/Mpc)\n",
+	       psp->sigma8,
+	       exp(psp->ln_k[psp->ln_k_size-1])/pba->h);
 
   /**- if interpolation of P_NL(k,tau) will be needed (as a function of tau),
      compute array of second derivatives in view of spline interpolation */

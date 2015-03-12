@@ -138,12 +138,12 @@ int perturb_init(
 
   if (ppt->has_perturbations == _FALSE_) {
     if (ppt->perturbations_verbose > 0)
-      printf("No sources requested. Perturbation module skipped.\n");
+      mpi_printf("No sources requested. Perturbation module skipped.\n");
     return _SUCCESS_;
   }
   else {
     if (ppt->perturbations_verbose > 0)
-      printf("Computing sources\n");
+      mpi_printf("Computing sources\n");
   }
 
   class_test((ppt->gauge == synchronous) && (pba->has_cdm == _FALSE_),
@@ -197,7 +197,8 @@ int perturb_init(
              "Vectors not coded yet");
 
   if ((ppt->has_niv == _TRUE_) && (ppt->perturbations_verbose > 0)) {
-    printf("Warning: the niv initial conditions in CLASS (and also in CAMB) should still be double-checked: if you want to do it and send feedback, you are welcome!\n");
+    mpi_printf("Warning: the niv initial conditions in CLASS (and also in CAMB) should still be "
+	       "double-checked: if you want to do it and send feedback, you are welcome!\n");
   }
 
   if (ppt->has_tensors == _TRUE_) {
@@ -260,7 +261,7 @@ int perturb_init(
   for (index_md = 0; index_md < ppt->md_size; index_md++) {
 
     if (ppt->perturbations_verbose > 1)
-      printf("Evolving mode %d/%d\n",index_md+1,ppt->md_size);
+      mpi_printf("Evolving mode %d/%d\n",index_md+1,ppt->md_size);
 
     abort = _FALSE_;
 
@@ -300,10 +301,10 @@ int perturb_init(
     for (index_ic = 0; index_ic < ppt->ic_size[index_md]; index_ic++) {
 
       if (ppt->perturbations_verbose > 1)
-        printf("Evolving ic %d/%d\n",index_ic+1,ppt->ic_size[index_md]);
+        mpi_printf("Evolving ic %d/%d\n",index_ic+1,ppt->ic_size[index_md]);
 
         if (ppt->perturbations_verbose > 1)
-          printf("evolving %d wavenumbers\n",ppt->k_size[index_md]);
+          mpi_printf("evolving %d wavenumbers\n",ppt->k_size[index_md]);
 
       abort = _FALSE_;
 
@@ -325,10 +326,13 @@ int perturb_init(
         for (index_k = ppt->k_size[index_md]-1; index_k >=0; index_k--) {
 
           if ((ppt->perturbations_verbose > 2) && (abort == _FALSE_)) {
-            printf("evolving mode k=%e /Mpc  (%d/%d)",ppt->k[index_md][index_k],index_k+1,ppt->k_size[index_md]);
+            mpi_printf("evolving mode k=%e /Mpc  (%d/%d)",ppt->k[index_md][index_k],
+		   index_k+1,ppt->k_size[index_md]);
             if (pba->sgnK != 0)
-              printf(" (for scalar modes, corresponds to nu=%e)",sqrt(ppt->k[index_md][index_k]*ppt->k[index_md][index_k]+pba->K)/sqrt(pba->sgnK*pba->K));
-            printf("\n");
+              mpi_printf(" (for scalar modes, corresponds to nu=%e)",
+			 sqrt(ppt->k[index_md][index_k]*ppt->k[index_md][index_k]+pba->K)
+			 /sqrt(pba->sgnK*pba->K));
+            mpi_printf("\n");
           }
 
 #ifdef _OPENMP
@@ -358,7 +362,7 @@ int perturb_init(
 
 #ifdef _OPENMP
         if (ppt->perturbations_verbose>1)
-          printf("In %s: time spent in parallel region (loop over k's) = %e s for thread %d\n",
+          mpi_printf("In %s: time spent in parallel region (loop over k's) = %e s for thread %d\n",
                  __func__,tspent,omp_get_thread_num());
 #endif
 
@@ -392,7 +396,6 @@ int perturb_init(
 
   free(pppw);
 
-#ifdef _DAM_MOD
   if(pba->do_f_nl==_TRUE_) {
     double dam_norm;
     double om=pba->Omega0_b+pba->Omega0_cdm;
@@ -411,7 +414,7 @@ int perturb_init(
     ppt->inv_growth_0=1./pvecback[pba->index_bg_D];
     free(pvecback);
 
-    printf("DAM: computing matter transfer function\n");
+    mpi_printf("DAM: computing matter transfer function\n");
     index_md=ppt->index_md_scalars;
     index_ic=0;
     
@@ -440,7 +443,6 @@ int perturb_init(
 	(kh*kh*tk);
     }
   }
-#endif //_DAM_MOD
 
   return _SUCCESS_;
 }
@@ -497,10 +499,8 @@ int perturb_free(
 
     free(ppt->sources);
 
-#ifdef _DAM_MOD
     if(ppt->do_f_nl == _TRUE_)
       free(ppt->f_nl_kdep);
-#endif //_DAM_MOD
   }
 
   return _SUCCESS_;
@@ -686,20 +686,6 @@ int perturb_indices_of_perturbs(
         if (ppt->has_nc_density == _TRUE_) {
           ppt->has_source_delta_m = _TRUE_;
         }
-#ifndef _DAM_MOD
-        if (ppt->has_nc_rsd == _TRUE_) {
-          ppt->has_source_theta_m = _TRUE_;
-        }
-        if (ppt->has_nc_lens == _TRUE_) {
-          ppt->has_source_phi_plus_psi = _TRUE_;
-        }
-        if (ppt->has_nc_gr == _TRUE_) {
-          ppt->has_source_phi = _TRUE_;
-          ppt->has_source_psi = _TRUE_;
-          ppt->has_source_phi_prime = _TRUE_;
-          ppt->has_source_phi_plus_psi = _TRUE_;
-        }
-#else //_DAM_MOD
         if ((ppt->has_nc_rsd1 == _TRUE_) ||
 	    (ppt->has_nc_rsd2 == _TRUE_) ||
 	    (ppt->has_nc_rsd3 == _TRUE_)) {
@@ -718,7 +704,6 @@ int perturb_indices_of_perturbs(
           ppt->has_source_phi_prime = _TRUE_;
           ppt->has_source_phi_plus_psi = _TRUE_;
         }
-#endif //_DAM_MOD
       }
 
       index_type = index_type_common;
@@ -766,6 +751,10 @@ int perturb_indices_of_perturbs(
                  ppt->error_message,
                  "you should have at least one adiabatic or isocurvature initial condition...} !!!");
 
+#ifdef _DAM_MPI
+      if(ppt->ic_size[index_md]!=1) 
+	mpi_abort(1,"MPI version only supports a single initial condition type\n");
+#endif //_DAM_MPI
     }
 
     if (_vectors_) {
@@ -1302,7 +1291,7 @@ int perturb_get_k_list(
       if ((ppt->has_cl_number_count == _TRUE_) || (ppt->has_cl_lensing_potential == _TRUE_)) {
 
         class_call(background_tau_of_z(pba,
-                                       ppt->selection_mean[0],
+                                       ppt->selection_mean_min,
                                        &tau1),
                    pba->error_message,
                    ppt->error_message);
@@ -2799,23 +2788,27 @@ int perturb_find_approximation_switches(
 
           if ((interval_approx[index_switch-1][ppw->index_ap_tca]==(int)tca_on) &&
               (interval_approx[index_switch][ppw->index_ap_tca]==(int)tca_off))
-            fprintf(stdout,"Mode k=%e: will switch off tight-coupling approximation at tau=%e\n",k,interval_limit[index_switch]);
+            mpi_printf("Mode k=%e: will switch off tight-coupling approximation at tau=%e\n",
+		       k,interval_limit[index_switch]);
           //fprintf(stderr,"Mode k=%e: will switch off tight-coupling approximation at tau=%e\n",k,interval_limit[index_switch]);  //TBC
 
           if ((interval_approx[index_switch-1][ppw->index_ap_rsa]==(int)rsa_off) &&
               (interval_approx[index_switch][ppw->index_ap_rsa]==(int)rsa_on))
-            fprintf(stdout,"Mode k=%e: will switch on radiation streaming approximation at tau=%e\n",k,interval_limit[index_switch]);
+            mpi_printf("Mode k=%e: will switch on radiation streaming approximation at tau=%e\n",
+		       k,interval_limit[index_switch]);
 
           if (pba->has_ur == _TRUE_) {
             if ((interval_approx[index_switch-1][ppw->index_ap_ufa]==(int)ufa_off) &&
                 (interval_approx[index_switch][ppw->index_ap_ufa]==(int)ufa_on)) {
-              fprintf(stdout,"Mode k=%e: will switch on ur fluid approximation at tau=%e\n",k,interval_limit[index_switch]);
+              mpi_printf("Mode k=%e: will switch on ur fluid approximation at tau=%e\n",
+			 k,interval_limit[index_switch]);
             }
           }
           if (pba->has_ncdm == _TRUE_) {
             if ((interval_approx[index_switch-1][ppw->index_ap_ncdmfa]==(int)ncdmfa_off) &&
                 (interval_approx[index_switch][ppw->index_ap_ncdmfa]==(int)ncdmfa_on)) {
-              fprintf(stdout,"Mode k=%e: will switch on ncdm fluid approximation at tau=%e\n",k,interval_limit[index_switch]);
+              mpi_printf("Mode k=%e: will switch on ncdm fluid approximation at tau=%e\n",k,
+			 interval_limit[index_switch]);
             }
           }
         }
@@ -2824,11 +2817,13 @@ int perturb_find_approximation_switches(
 
           if ((interval_approx[index_switch-1][ppw->index_ap_tca]==(int)tca_on) &&
               (interval_approx[index_switch][ppw->index_ap_tca]==(int)tca_off))
-            fprintf(stdout,"Mode k=%e: will switch off tight-coupling approximation for tensors at tau=%e\n",k,interval_limit[index_switch]);
+            mpi_printf("Mode k=%e: will switch off tight-coupling approximation for tensors at tau=%e\n",
+		       k,interval_limit[index_switch]);
 
           if ((interval_approx[index_switch-1][ppw->index_ap_rsa]==(int)rsa_off) &&
               (interval_approx[index_switch][ppw->index_ap_rsa]==(int)rsa_on))
-            fprintf(stdout,"Mode k=%e: will switch on radiation streaming approximation for tensors at tau=%e\n",k,interval_limit[index_switch]);
+            mpi_printf("Mode k=%e: will switch on radiation streaming approximation for tensors at tau=%e\n",
+		       k,interval_limit[index_switch]);
 
         }
       }
@@ -3284,7 +3279,7 @@ int perturb_vector_init(
   if (pa_old == NULL) {
 
     if (ppt->perturbations_verbose>2)
-      fprintf(stdout,"Mode k=%e: initializing vector at tau=%e\n",k,tau);
+      mpi_printf("Mode k=%e: initializing vector at tau=%e\n",k,tau);
 
     if (_scalars_) {
 
@@ -3428,7 +3423,7 @@ int perturb_vector_init(
       if ((pa_old[ppw->index_ap_tca] == (int)tca_on) && (ppw->approx[ppw->index_ap_tca] == (int)tca_off)) {
 
         if (ppt->perturbations_verbose>2)
-          fprintf(stdout,"Mode k=%e: switch off tight-coupling approximation at tau=%e\n",k,tau);
+          mpi_printf("Mode k=%e: switch off tight-coupling approximation at tau=%e\n",k,tau);
 
         ppv->y[ppv->index_pt_delta_g] =
           ppw->pv->y[ppw->pv->index_pt_delta_g];
@@ -3514,7 +3509,7 @@ int perturb_vector_init(
       if ((pa_old[ppw->index_ap_rsa] == (int)rsa_off) && (ppw->approx[ppw->index_ap_rsa] == (int)rsa_on)) {
 
         if (ppt->perturbations_verbose>2)
-          fprintf(stdout,"Mode k=%e: switch on radiation streaming approximation at tau=%e with Omega_r=%g\n",k,tau,ppw->pvecback[pba->index_bg_Omega_r]);
+          mpi_printf("Mode k=%e: switch on radiation streaming approximation at tau=%e with Omega_r=%g\n",k,tau,ppw->pvecback[pba->index_bg_Omega_r]);
 
         if (pba->has_ncdm == _TRUE_) {
           index_pt = 0;
@@ -3539,7 +3534,7 @@ int perturb_vector_init(
         if ((pa_old[ppw->index_ap_ufa] == (int)ufa_off) && (ppw->approx[ppw->index_ap_ufa] == (int)ufa_on)) {
 
           if (ppt->perturbations_verbose>2)
-            fprintf(stdout,"Mode k=%e: switch on ur fluid approximation at tau=%e\n",k,tau);
+            mpi_printf("Mode k=%e: switch on ur fluid approximation at tau=%e\n",k,tau);
 
           if (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off) {
 
@@ -3622,7 +3617,7 @@ int perturb_vector_init(
         if ((pa_old[ppw->index_ap_ncdmfa] == (int)ncdmfa_off) && (ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_on)) {
 
           if (ppt->perturbations_verbose>2)
-            fprintf(stdout,"Mode k=%e: switch on ncdm fluid approximation at tau=%e\n",k,tau);
+            mpi_printf("Mode k=%e: switch on ncdm fluid approximation at tau=%e\n",k,tau);
 
           if (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off) {
 
@@ -3775,7 +3770,7 @@ int perturb_vector_init(
       if ((pa_old[ppw->index_ap_tca] == (int)tca_on) && (ppw->approx[ppw->index_ap_tca] == (int)tca_off)) {
 
         if (ppt->perturbations_verbose>2)
-          fprintf(stdout,"Mode k=%e: switch off tight-coupling approximation at tau=%e\n",k,tau);
+          mpi_printf("Mode k=%e: switch off tight-coupling approximation at tau=%e\n",k,tau);
 
         ppv->y[ppv->index_pt_delta_g] = 0.0; //TBC
         //-4./3.*ppw->pv->y[ppw->pv->index_pt_gwdot]/ppw->pvecthermo[pth->index_th_dkappa];
@@ -3791,7 +3786,8 @@ int perturb_vector_init(
       if ((pa_old[ppw->index_ap_rsa] == (int)rsa_off) && (ppw->approx[ppw->index_ap_rsa] == (int)rsa_on)) {
 
         if (ppt->perturbations_verbose>2)
-          fprintf(stdout,"Mode k=%e: switch on radiation streaming approximation at tau=%e with Omega_r=%g\n",k,tau,ppw->pvecback[pba->index_bg_Omega_r]);
+          mpi_printf("Mode k=%e: switch on radiation streaming approximation at tau=%e with Omega_r=%g\n",
+		     k,tau,ppw->pvecback[pba->index_bg_Omega_r]);
 
       }
 
@@ -3865,7 +3861,7 @@ int perturb_vector_init(
       if ((pa_old[ppw->index_ap_tca] == (int)tca_on) && (ppw->approx[ppw->index_ap_tca] == (int)tca_off)) {
 
         if (ppt->perturbations_verbose>2)
-          fprintf(stdout,"Mode k=%e: switch off tight-coupling approximation at tau=%e\n",k,tau);
+          mpi_printf("Mode k=%e: switch off tight-coupling approximation at tau=%e\n",k,tau);
 
         ppv->y[ppv->index_pt_delta_g] = -4./3.*ppw->pv->y[ppw->pv->index_pt_gwdot]/ppw->pvecthermo[pth->index_th_dkappa];
 
@@ -3879,7 +3875,8 @@ int perturb_vector_init(
       if ((pa_old[ppw->index_ap_rsa] == (int)rsa_off) && (ppw->approx[ppw->index_ap_rsa] == (int)rsa_on)) {
 
         if (ppt->perturbations_verbose>2)
-          fprintf(stdout,"Mode k=%e: switch on radiation streaming approximation at tau=%e with Omega_r=%g\n",k,tau,ppw->pvecback[pba->index_bg_Omega_r]);
+          mpi_printf("Mode k=%e: switch on radiation streaming approximation at tau=%e with Omega_r=%g\n",
+		     k,tau,ppw->pvecback[pba->index_bg_Omega_r]);
 
       }
     }

@@ -246,45 +246,65 @@ int init_selection_functions_lensing_dam(
 					 glb_selection_lns_size[ibin]),
 	       ptr->error_message,ptr->error_message);
 
-    if(ppt->has_nc_gr5) {
-      int index_tau_sourcesb;
-
-      class_alloc(array_bg,4*tau_sources_size*sizeof(double),ptr->error_message);
-
-      for(index_tau_sourcesb=0;index_tau_sourcesb<tau_sources_size;index_tau_sourcesb++) {
-	double z,dNdz,dln_dNdz_dz;
-	class_call(background_at_tau(pba,tau0-tau0_minus_tau_lns_sources[index_tau_sourcesb],
-				     pba->long_info,pba->inter_normal,&last_index,pvecback),
-		   pba->error_message,ptr->error_message);
-	array_bg[4*index_tau_sourcesb+0]=1./pvecback[pba->index_bg_a];
-	array_bg[4*index_tau_sourcesb+1]=1./pvecback[pba->index_bg_H];
-	array_bg[4*index_tau_sourcesb+2]=pvecback[pba->index_bg_H_prime];
-	z=pba->a_today/pvecback[pba->index_bg_a]-1;
-
-	if(ptr->has_nz_evo_file==_TRUE_) {
-	  class_test((z<ptr->nz_evo_z[0]) || (z>ptr->nz_evo_z[ptr->nz_evo_size-1]),
-		     ptr->error_message,"Your input file for the selection function only "
-		     "covers the redhsift range [%f : %f]. However, your input for the "
-		     "selection function requires z=%f",
-		     ptr->nz_evo_z[0],ptr->nz_evo_z[ptr->nz_evo_size-1],z);
-	  
-	  class_call(array_interpolate_spline(ptr->nz_evo_z,ptr->nz_evo_size,
-					      ptr->nz_evo_dlog_nz,
-					      ptr->nz_evo_dd_dlog_nz,
-					      1,z,&last_index,&dln_dNdz_dz,
-					      1,ptr->error_message),
-		     ptr->error_message,ptr->error_message);
-		  
-	}
-	else if(ptr->has_nz_evo_analytic==_TRUE_){
-	  class_call(transfer_dNdz_analytic(ptr,z,&dNdz,&dln_dNdz_dz),
-		     ptr->error_message,ptr->error_message);
-	}
-	else 
-	  dln_dNdz_dz=0;
-
-	array_bg[4*index_tau_sourcesb+3]=dln_dNdz_dz;
+    int index_tau_sourcesb;
+    class_alloc(array_bg,5*tau_sources_size*sizeof(double),ptr->error_message);
+    
+    for(index_tau_sourcesb=0;index_tau_sourcesb<tau_sources_size;index_tau_sourcesb++) {
+      double z,e_bias,s_bias;
+      class_call(background_at_tau(pba,tau0-tau0_minus_tau_lns_sources[index_tau_sourcesb],
+				   pba->long_info,pba->inter_normal,&last_index,pvecback),
+		 pba->error_message,ptr->error_message);
+      array_bg[5*index_tau_sourcesb+1]=1./pvecback[pba->index_bg_a];
+      array_bg[5*index_tau_sourcesb+2]=1./pvecback[pba->index_bg_H];
+      array_bg[5*index_tau_sourcesb+3]=pvecback[pba->index_bg_H_prime];
+      z=pba->a_today/pvecback[pba->index_bg_a]-1;
+      
+      if(ptr->has_ez_file==_TRUE_) {
+	class_test((z<ptr->ez_z[0]) || (z>ptr->ez_z[ptr->ez_size-1]),
+		   ptr->error_message,"Your input file for the evolution bias function only "
+		   "covers the redhsift range [%f : %f]. However, your input for the "
+		   "selection function requires z=%f",
+		   ptr->ez_z[0],ptr->ez_z[ptr->ez_size-1],z);
+	
+	class_call(array_interpolate_spline(ptr->ez_z,
+					    ptr->ez_size,
+					    ptr->ez_ez,
+					    ptr->ez_ddez,
+					    1,
+					    z,
+					    &last_index,
+					    &e_bias,
+					    1,
+					    ptr->error_message),
+		   ptr->error_message,ptr->error_message);
       }
+      else 
+	e_bias=ptr->e_bias;
+
+      if(ptr->has_sz_file==_TRUE_) {
+	class_test((z<ptr->sz_z[0]) || (z>ptr->sz_z[ptr->sz_size-1]),
+		   ptr->error_message,"Your input file for the magnification bias function only "
+		   "covers the redhsift range [%f : %f]. However, your input for the "
+		   "selection function requires z=%f",
+		   ptr->sz_z[0],ptr->sz_z[ptr->sz_size-1],z);
+	
+	class_call(array_interpolate_spline(ptr->sz_z,
+					    ptr->sz_size,
+					    ptr->sz_sz,
+					    ptr->sz_ddsz,
+					    1,
+					    z,
+					    &last_index,
+					    &s_bias,
+					    1,
+					    ptr->error_message),
+		   ptr->error_message,ptr->error_message);
+      }
+      else 
+	s_bias=ptr->s_bias;
+      
+      array_bg[5*index_tau_sourcesb+4]=e_bias;
+      array_bg[5*index_tau_sourcesb+0]=s_bias;
     }
 
     for(index_tau=0;index_tau<tau_size;index_tau++) {
@@ -312,9 +332,10 @@ int init_selection_functions_lensing_dam(
 	  if((tau0_minus_tau_lns_sources[index_tau_sources]>0.) &&
 	     (tau0_minus_tau_lns_sources[index_tau_sources]-
 	      glb_selection_lns_tau0_minus_tau[ibin][index_tau]>0.)) {
+	    double s_bias=array_bg[5*index_tau_sources+0];
 
 	    if(ppt->has_nc_lens) {
-	      rescaling_lns+=(2.-5.*ptr->s_bias)/2.
+	      rescaling_lns+=(2.-5.*s_bias)/2.
 		*(glb_selection_lns_tau0_minus_tau[ibin][index_tau]-
 		  tau0_minus_tau_lns_sources[index_tau_sources])
 		/glb_selection_lns_tau0_minus_tau[ibin][index_tau]
@@ -324,32 +345,21 @@ int init_selection_functions_lensing_dam(
 	    }
 
 	    if(ppt->has_nc_gr4) {
-	      rescaling_gr4+=(2.-5.*ptr->s_bias)
+	      rescaling_gr4+=(2.-5.*s_bias)
 		/tau0_minus_tau_lns_sources[index_tau_sources]
 		*selection[index_tau_sources]
 		*w_trapz_lns_sources[index_tau_sources];
 	    }
 
 	    if(ppt->has_nc_gr5) {
-	      double f_evo;
-	      double *bg=&(array_bg[4*index_tau_sources]);
-	      double ia_h=bg[0];
-	      double iH_h=bg[1];
-	      double Hp_h=bg[2];
-
-	      if((ptr->has_nz_evo_file==_TRUE_) || (ptr->has_nz_evo_analytic==_TRUE_)) {
-		double dln_dNdz_dz;
-		dln_dNdz_dz=bg[3];
-		f_evo=2.*ia_h*iH_h/tau0_minus_tau_lns_sources[index_tau_sources]+
-		  Hp_h*iH_h*iH_h*ia_h-dln_dNdz_dz*ia_h;
-	      }
-	      else {
-		f_evo=0.;
-	      }
+	      double ia_h=array_bg[5*index_tau_sources+1];
+	      double iH_h=array_bg[5*index_tau_sources+2];
+	      double Hp_h=array_bg[5*index_tau_sources+3];
+	      double e_bias=array_bg[5*index_tau_sources+4];
 
 	      rescaling_gr5+=
-		(1.+Hp_h*ia_h*iH_h*iH_h+(2.-5.*ptr->s_bias)*ia_h*iH_h/
-		 tau0_minus_tau_lns_sources[index_tau_sources]+5.*ptr->s_bias-f_evo)
+		(1.+Hp_h*ia_h*iH_h*iH_h+(2.-5.*s_bias)*ia_h*iH_h/
+		 tau0_minus_tau_lns_sources[index_tau_sources]+5.*s_bias-e_bias)
 		*selection[index_tau_sources]
 		*w_trapz_lns_sources[index_tau_sources];
 	    }
@@ -364,8 +374,7 @@ int init_selection_functions_lensing_dam(
       if(ppt->has_nc_gr5)
 	glb_selection_lns_gr5[ibin][index_tau]=rescaling_gr5;
     }
-    if(ppt->has_nc_gr5)
-      free(array_bg);
+    free(array_bg);
   }
 
   free(pvecback);
@@ -906,12 +915,17 @@ int transfer_free(
       free(ptr->bz_bz);
       free(ptr->bz_ddbz);
     }
-    
-    if (ptr->nz_evo_size > 0) {
-      free(ptr->nz_evo_z);
-      free(ptr->nz_evo_nz);
-      free(ptr->nz_evo_dlog_nz);
-      free(ptr->nz_evo_dd_dlog_nz);
+
+    if (ptr->sz_size > 0) {
+      free(ptr->sz_z);
+      free(ptr->sz_sz);
+      free(ptr->sz_ddsz);
+    }
+
+    if (ptr->ez_size > 0) {
+      free(ptr->ez_z);
+      free(ptr->ez_ez);
+      free(ptr->ez_ddez);
     }
   }
   
@@ -2519,12 +2533,13 @@ int transfer_sources(
   double * bias_arr;
 
   /* source evolution factor */
-  double f_evo = 0.;
+  double e_bias = 0.;
+
+  /* source evolution factor */
+  double s_bias = 0.;
 
   /* when the selection function is multiplied by a function dNdz */
   double z;
-  double dNdz;
-  double dln_dNdz_dz;
 
   /* in which cases are perturbation and transfer sources are different?
      I.e., in which case do we need to mutiply the sources by some
@@ -2726,57 +2741,74 @@ int transfer_sources(
                      pba->error_message,
                      ptr->error_message);
 
+          /* Magnification bias, used by number counf rsd and number count gravity terms */
+          if ((_index_tt_in_range_(ptr->index_tt_d1,      ptr->selection_num, ppt->has_nc_rsd3)) ||
+              (_index_tt_in_range_(ptr->index_tt_nc_g2,   ptr->selection_num, ppt->has_nc_gr2))) {
+
+	    if(ptr->has_sz_file == _TRUE_) {
+              z = pba->a_today/pvecback[pba->index_bg_a]-1.;
+
+	      class_test((z<ptr->sz_z[0]) || (z>ptr->sz_z[ptr->sz_size-1]),
+			 ptr->error_message,
+			  "Your input file for the magnification bias function only covers"
+			  " the redhsift range [%f : %f]. However, your input for the "
+			 "selection function requires z=%f",
+			 ptr->sz_z[0],
+			 ptr->sz_z[ptr->sz_size-1],
+			 z);
+
+	      class_call(array_interpolate_spline(
+						  ptr->sz_z,
+						  ptr->sz_size,
+						  ptr->sz_sz,
+						  ptr->sz_ddsz,
+						  1,
+						  z,
+						  &last_index,
+						  &s_bias,
+						  1,
+						  ptr->error_message),
+			 ptr->error_message,
+			 ptr->error_message);
+	    }
+	    else
+	      s_bias=ptr->s_bias;
+
+	  }
+
           /* Source evolution, used by number counf rsd and number count gravity terms */
           if ((_index_tt_in_range_(ptr->index_tt_d0,      ptr->selection_num, ppt->has_nc_rsd2)) ||
 	      (_index_tt_in_range_(ptr->index_tt_d1,      ptr->selection_num, ppt->has_nc_rsd3)) ||
               (_index_tt_in_range_(ptr->index_tt_nc_g2,   ptr->selection_num, ppt->has_nc_gr2))) {
 
-            if((ptr->has_nz_evo_file == _TRUE_) || (ptr->has_nz_evo_analytic == _TRUE_)){
-
-              f_evo = 2./pvecback[pba->index_bg_H]/pvecback[pba->index_bg_a]/tau0_minus_tau[index_tau]
-                + pvecback[pba->index_bg_H_prime]/pvecback[pba->index_bg_H]/pvecback[pba->index_bg_H]/pvecback[pba->index_bg_a];
-
+	    if(ptr->has_ez_file == _TRUE_) {
               z = pba->a_today/pvecback[pba->index_bg_a]-1.;
 
-              if (ptr->has_nz_evo_file ==_TRUE_) {
+	      class_test((z<ptr->ez_z[0]) || (z>ptr->ez_z[ptr->ez_size-1]),
+			 ptr->error_message,
+			  "Your input file for the evolution bias function only covers"
+			  " the redhsift range [%f : %f]. However, your input for the "
+			 "selection function requires z=%f",
+			 ptr->ez_z[0],
+			 ptr->ez_z[ptr->ez_size-1],
+			 z);
 
-                class_test((z<ptr->nz_evo_z[0]) || (z>ptr->nz_evo_z[ptr->nz_evo_size-1]),
-                           ptr->error_message,
-                           "Your input file for the selection function only covers the redhsift range [%f : %f]. However, your input for the selection function requires z=%f",
-                           ptr->nz_evo_z[0],
-                           ptr->nz_evo_z[ptr->nz_evo_size-1],
-                           z);
-
-                class_call(array_interpolate_spline(
-                                                    ptr->nz_evo_z,
-                                                    ptr->nz_evo_size,
-                                                    ptr->nz_evo_dlog_nz,
-                                                    ptr->nz_evo_dd_dlog_nz,
-                                                    1,
-                                                    z,
-                                                    &last_index,
-                                                    &dln_dNdz_dz,
-                                                    1,
-                                                    ptr->error_message),
-                           ptr->error_message,
-                           ptr->error_message);
-
-              }
-              else {
-
-                class_call(transfer_dNdz_analytic(ptr,
-                                                  z,
-                                                  &dNdz,
-                                                  &dln_dNdz_dz),
-                           ptr->error_message,
-                           ptr->error_message);
-              }
-
-              f_evo -= dln_dNdz_dz/pvecback[pba->index_bg_a];
-            }
-            else {
-              f_evo = 0.;
-            }
+	      class_call(array_interpolate_spline(
+						  ptr->ez_z,
+						  ptr->ez_size,
+						  ptr->ez_ez,
+						  ptr->ez_ddez,
+						  1,
+						  z,
+						  &last_index,
+						  &e_bias,
+						  1,
+						  ptr->error_message),
+			 ptr->error_message,
+			 ptr->error_message);
+	    }
+	    else
+	      e_bias=ptr->e_bias;
 
           }
 
@@ -2808,7 +2840,7 @@ int transfer_sources(
             rescaling = selection[index_tau]/pvecback[pba->index_bg_H]/pvecback[pba->index_bg_a];
 
           if (_index_tt_in_range_(ptr->index_tt_d0,      ptr->selection_num, ppt->has_nc_rsd2))
-            rescaling = (f_evo-3.)*selection[index_tau]*pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]
+            rescaling = (e_bias-3.)*selection[index_tau]*pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]
               /ptr->k[index_md][index_q]/ptr->k[index_md][index_q];
 
           if (_index_tt_in_range_(ptr->index_tt_d1,      ptr->selection_num, ppt->has_nc_rsd3))
@@ -2817,12 +2849,12 @@ int transfer_sources(
                                               /pvecback[pba->index_bg_a]
                                               /pvecback[pba->index_bg_H]
                                               /pvecback[pba->index_bg_H]
-                                              +(2.-5.*ptr->s_bias)
+                                              +(2.-5.*s_bias)
                                               /tau0_minus_tau[index_tau]
                                               /pvecback[pba->index_bg_a]
                                               /pvecback[pba->index_bg_H]
-                                              +5.*ptr->s_bias
-                                              -f_evo
+                                              +5.*s_bias
+                                              -e_bias
                                               )/ptr->k[index_md][index_q];
 
           if (_index_tt_in_range_(ptr->index_tt_nc_g1,   ptr->selection_num, ppt->has_nc_gr1))
@@ -2834,11 +2866,11 @@ int transfer_sources(
                                                /pvecback[pba->index_bg_a]
                                                /pvecback[pba->index_bg_H]
                                                /pvecback[pba->index_bg_H]
-                                               +(2.-5.*ptr->s_bias)
+                                               +(2.-5.*s_bias)
                                                /tau0_minus_tau[index_tau]
                                                /pvecback[pba->index_bg_a]
                                                /pvecback[pba->index_bg_H]
-                                               -f_evo
+                                               -e_bias
                                                );
 
           if (_index_tt_in_range_(ptr->index_tt_nc_g3,   ptr->selection_num, ppt->has_nc_gr3))
@@ -3140,7 +3172,8 @@ int transfer_bias_function(
     
     class_test((z<ptr->bz_z[0]) || (z>ptr->bz_z[ptr->bz_size-1]),
 	       ptr->error_message,
-	       "Your input file for the bias function only covers the redhsift range [%f : %f]. However, your input for the selection function requires z=%f",
+	       "Your input file for the bias function only covers the redhsift range [%f : %f]."
+	       " However, your input for the selection function requires z=%f",
 	       ptr->bz_z[0],
 	       ptr->bz_z[ptr->bz_size-1],
 	       z);
@@ -4901,60 +4934,84 @@ int transfer_global_selection_read(
     mpi_printf("will use constant bias b=%.3lf\n",ptr->bias);
   }
 
-  ptr->nz_evo_size = 0;
-
-  if (ptr->has_nz_evo_file == _TRUE_) {
-
-    input_file = fopen(ptr->nz_evo_file_name,"r");
+  if (ptr->has_sz_file == _TRUE_) {
+    mpi_printf("Reading s-bias from %s\n",ptr->sz_file_name);
+    input_file = fopen(ptr->sz_file_name,"r");
     class_test(input_file == NULL,
                ptr->error_message,
-               "Could not open file %s!",ptr->nz_evo_file_name);
+               "Could not open file %s!",ptr->sz_file_name);
 
     /* Find size of table */
     for (row=0,status=2; status==2; row++){
       status = fscanf(input_file,"%lf %lf",&tmp1,&tmp2);
     }
     rewind(input_file);
-    ptr->nz_evo_size = row-1;
+    ptr->sz_size = row-1;
 
     /* Allocate room for interpolation table */
-    class_alloc(ptr->nz_evo_z,sizeof(double)*ptr->nz_evo_size,ptr->error_message);
-    class_alloc(ptr->nz_evo_nz,sizeof(double)*ptr->nz_evo_size,ptr->error_message);
-    class_alloc(ptr->nz_evo_dlog_nz,sizeof(double)*ptr->nz_evo_size,ptr->error_message);
-    class_alloc(ptr->nz_evo_dd_dlog_nz,sizeof(double)*ptr->nz_evo_size,ptr->error_message);
+    class_alloc(ptr->sz_z,sizeof(double)*ptr->sz_size,ptr->error_message);
+    class_alloc(ptr->sz_sz,sizeof(double)*ptr->sz_size,ptr->error_message);
+    class_alloc(ptr->sz_ddsz,sizeof(double)*ptr->sz_size,ptr->error_message);
 
-    for (row=0; row<ptr->nz_evo_size; row++){
+    for (row=0; row<ptr->sz_size; row++){
       status = fscanf(input_file,"%lf %lf",
-                      &ptr->nz_evo_z[row],&ptr->nz_evo_nz[row]);
+                      &ptr->sz_z[row],&ptr->sz_sz[row]);
     }
     fclose(input_file);
 
-    /* infer dlog(dN/dz)/dz from dN/dz */
-    ptr->nz_evo_dlog_nz[0] =
-      (ptr->nz_evo_nz[1]-ptr->nz_evo_nz[0])
-      /(ptr->nz_evo_z[1]-ptr->nz_evo_z[0])
-      /(0.5*(ptr->nz_evo_nz[1]+ptr->nz_evo_nz[0]));
-    for (row=1; row<ptr->nz_evo_size-1; row++){
-      ptr->nz_evo_dlog_nz[row] =
-	(ptr->nz_evo_nz[row+1]-ptr->nz_evo_nz[row-1])
-	/(ptr->nz_evo_z[row+1]-ptr->nz_evo_z[row-1])
-	/ptr->nz_evo_nz[row];
-    }
-    ptr->nz_evo_dlog_nz[ptr->nz_evo_size-1] =
-      (ptr->nz_evo_nz[ptr->nz_evo_size-1]-ptr->nz_evo_nz[ptr->nz_evo_size-2])
-      /(ptr->nz_evo_z[ptr->nz_evo_size-1]-ptr->nz_evo_z[ptr->nz_evo_size-2])
-      /(0.5*(ptr->nz_evo_nz[ptr->nz_evo_size-1]+ptr->nz_evo_nz[ptr->nz_evo_size-2]));
-
     /* Call spline interpolation: */
-    class_call(array_spline_table_lines(ptr->nz_evo_z,
-                                        ptr->nz_evo_size,
-                                        ptr->nz_evo_dlog_nz,
+    class_call(array_spline_table_lines(ptr->sz_z,
+                                        ptr->sz_size,
+                                        ptr->sz_sz,
                                         1,
-                                        ptr->nz_evo_dd_dlog_nz,
+                                        ptr->sz_ddsz,
                                         _SPLINE_EST_DERIV_,
                                         ptr->error_message),
                ptr->error_message,
                ptr->error_message);
+  }
+  else {
+    mpi_printf("will use constant s-bias s=%.3lf\n",ptr->s_bias);
+  }
+
+  if (ptr->has_ez_file == _TRUE_) {
+    mpi_printf("Reading e-bias from %s\n",ptr->ez_file_name);
+    input_file = fopen(ptr->ez_file_name,"r");
+    class_test(input_file == NULL,
+               ptr->error_message,
+               "Could not open file %s!",ptr->ez_file_name);
+
+    /* Find size of table */
+    for (row=0,status=2; status==2; row++){
+      status = fscanf(input_file,"%lf %lf",&tmp1,&tmp2);
+    }
+    rewind(input_file);
+    ptr->ez_size = row-1;
+
+    /* Allocate room for interpolation table */
+    class_alloc(ptr->ez_z,sizeof(double)*ptr->ez_size,ptr->error_message);
+    class_alloc(ptr->ez_ez,sizeof(double)*ptr->ez_size,ptr->error_message);
+    class_alloc(ptr->ez_ddez,sizeof(double)*ptr->ez_size,ptr->error_message);
+
+    for (row=0; row<ptr->ez_size; row++){
+      status = fscanf(input_file,"%lf %lf",
+                      &ptr->ez_z[row],&ptr->ez_ez[row]);
+    }
+    fclose(input_file);
+
+    /* Call spline interpolation: */
+    class_call(array_spline_table_lines(ptr->ez_z,
+                                        ptr->ez_size,
+                                        ptr->ez_ez,
+                                        1,
+                                        ptr->ez_ddez,
+                                        _SPLINE_EST_DERIV_,
+                                        ptr->error_message),
+               ptr->error_message,
+               ptr->error_message);
+  }
+  else {
+    mpi_printf("will use constant e-bias e_bias=%.3lf\n",ptr->e_bias);
   }
 
   return _SUCCESS_;
