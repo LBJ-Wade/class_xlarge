@@ -444,8 +444,8 @@ int background_init(
 
   /** - in verbose mode, provide some information */
   if (pba->background_verbose > 0) {
-    printf("Running CLASS version %s\n",_VERSION_);
-    printf("Computing background\n");
+    mpi_printf("Running CLASS version %s\n",_VERSION_);
+    mpi_printf("Computing background\n");
 
     /* below we want to inform the user about ncdm species*/
     if (pba->N_ncdm > 0) {
@@ -455,7 +455,7 @@ int background_init(
 
         /* inform if p-s-d read in files */
         if (pba->got_files[n_ncdm] == _TRUE_) {
-          printf(" -> ncdm species i=%d read from file %s\n",n_ncdm+1,pba->ncdm_psd_files+filenum*_ARGUMENT_LENGTH_MAX_);
+          mpi_printf(" -> ncdm species i=%d read from file %s\n",n_ncdm+1,pba->ncdm_psd_files+filenum*_ARGUMENT_LENGTH_MAX_);
           filenum++;
         }
 
@@ -482,7 +482,7 @@ int background_init(
         rho_nu_rel = 56.0/45.0*pow(_PI_,6)*pow(4.0/11.0,4.0/3.0)*_G_/pow(_h_P_,3)/pow(_c_,7)*
           pow(_Mpc_over_m_,2)*pow(pba->T_cmb*_k_B_,4);
 
-        printf(" -> ncdm species i=%d sampled with %d (resp. %d) points for purpose of background (resp. perturbation) integration. In the relativistic limit it gives N_eff = %g\n",
+        mpi_printf(" -> ncdm species i=%d sampled with %d (resp. %d) points for purpose of background (resp. perturbation) integration. In the relativistic limit it gives N_eff = %g\n",
                n_ncdm+1,
                pba->q_size_ncdm_bg[n_ncdm],
                pba->q_size_ncdm[n_ncdm],
@@ -530,7 +530,7 @@ int background_init(
      93 point something)*/
   if ((pba->background_verbose > 0) && (pba->has_ncdm == _TRUE_)) {
     for (n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++) {
-      printf(" -> non-cold dark matter species with i=%d has m_i = %e eV (so m_i / omega_i =%e eV)\n",
+      mpi_printf(" -> non-cold dark matter species with i=%d has m_i = %e eV (so m_i / omega_i =%e eV)\n",
              n_ncdm+1,
              pba->m_ncdm_in_eV[n_ncdm],
              pba->m_ncdm_in_eV[n_ncdm]/pba->Omega0_ncdm[n_ncdm]/pba->h/pba->h);
@@ -1026,7 +1026,6 @@ int background_ncdm_init(
       for (row=0; row<pbadist.tablesize; row++){
         status = fscanf(psdfile,"%lf %lf",
                         &pbadist.q[row],&pbadist.f0[row]);
-        //		printf("(q,f0) = (%g,%g)\n",pbadist.q[row],pbadist.f0[row]);
       }
       fclose(psdfile);
       /* Call spline interpolation: */
@@ -1064,7 +1063,7 @@ int background_ncdm_init(
 
 
     if (pba->background_verbose > 0)
-      printf("ncdm species i=%d sampled with %d points for purpose of perturbation integration\n",
+      mpi_printf("ncdm species i=%d sampled with %d points for purpose of perturbation integration\n",
              k+1,
              pba->q_size_ncdm[k]);
 
@@ -1093,7 +1092,7 @@ int background_ncdm_init(
     /** - in verbose mode, inform user of number of sampled momenta
         for background quantities */
     if (pba->background_verbose > 0)
-      printf("ncdm species i=%d sampled with %d points for purpose of background integration\n",
+      mpi_printf("ncdm species i=%d sampled with %d points for purpose of background integration\n",
              k+1,
              pba->q_size_ncdm_bg[k]);
 
@@ -1134,7 +1133,6 @@ int background_ncdm_init(
                  pba->error_message,pba->error_message);
       //5 point estimate of the derivative:
       df0dq = (+f0m2-8*f0m1+8*f0p1-f0p2)/12.0/dq;
-      //printf("df0dq[%g] = %g. dlf=%g ?= %g. f0 =%g.\n",q,df0dq,q/f0*df0dq,
       //Avoid underflow in extreme tail:
       if (fabs(f0)==0.)
         pba->dlnf0_dlnq_ncdm[k][index_q] = -q; /* valid for whatever f0 with exponential tail in exp(-q) */
@@ -1573,16 +1571,16 @@ int background_solve(
 
   /** - done */
   if (pba->background_verbose > 0) {
-    printf(" -> age = %f Gyr\n",pba->age);
-    printf(" -> conformal age = %f Mpc\n",pba->conformal_age);
+    mpi_printf(" -> age = %f Gyr\n",pba->age);
+    mpi_printf(" -> conformal age = %f Mpc\n",pba->conformal_age);
   }
 
   if (pba->background_verbose > 2) {
     if ((pba->has_dcdm == _TRUE_)&&(pba->has_dr == _TRUE_)){
-      printf("    Decaying Cold Dark Matter details: (DCDM --> DR)\n");
-      printf("     -> Omega0_dcdm = %f\n",pba->Omega0_dcdm);
-      printf("     -> Omega0_dr = %f\n",pba->Omega0_dr);
-      printf("     -> Omega0_dr+Omega0_dcdm = %f, input value = %f\n",
+      mpi_printf("    Decaying Cold Dark Matter details: (DCDM --> DR)\n");
+      mpi_printf("     -> Omega0_dcdm = %f\n",pba->Omega0_dcdm);
+      mpi_printf("     -> Omega0_dr = %f\n",pba->Omega0_dr);
+      mpi_printf("     -> Omega0_dr+Omega0_dcdm = %f, input value = %f\n",
              pba->Omega0_dr+pba->Omega0_dcdm,pba->Omega0_dcdmdr);
     }
   }
@@ -1672,7 +1670,7 @@ int background_initial_conditions(
     pvecback_integration[pba->index_bi_rho_dcdm] =
       pba->Omega_ini_dcdm*pba->H0*pba->H0*pow(pba->a_today/a,3);
     if (pba->background_verbose > 3)
-      printf("Density is %g. a_today=%g. Omega_ini=%g\n",pvecback_integration[pba->index_bi_rho_dcdm],pba->a_today,pba->Omega_ini_dcdm);
+      mpi_printf("Density is %g. a_today=%g. Omega_ini=%g\n",pvecback_integration[pba->index_bi_rho_dcdm],pba->a_today,pba->Omega_ini_dcdm);
   }
   if (pba->has_dr == _TRUE_){
     if (pba->has_dcdm == _TRUE_){

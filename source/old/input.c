@@ -83,7 +83,8 @@ int input_init_from_arguments(
         strcpy(precision_file,argv[i]);
       }
       else {
-        fprintf(stdout,"Warning: the file %s has an extension different from .ini and .pre, so it has been ignored\n",argv[i]);
+        mpi_printf("Warning: the file %s has an extension different from .ini and .pre, so "
+		   "it has been ignored\n",argv[i]);
       }
     }
   }
@@ -243,9 +244,8 @@ int input_init(
                errmsg,
                errmsg);
     if ((flag1 == _TRUE_)&&(input_auxillary_target_conditions(index_target,param1) == _TRUE_)){
-      /** input_auxillary_target_conditions() takes care of the case where for instance Omega_dcdmdr is set to 0.0.
-       */
-      //printf("Found target: %s\n",target_namestrings[index_target]);
+      /** input_auxillary_target_conditions() takes care of the case where for instance
+	  Omega_dcdmdr is set to 0.0. */
       target_indices[unknown_parameters_size] = index_target;
       fzw.required_computation_stage = MAX(fzw.required_computation_stage,target_cs[index_target]);
       unknown_parameters_size++;
@@ -298,7 +298,6 @@ int input_init(
       fzw.unknown_parameters_index[counter]=pfc->size+counter;
       // substitute the name of the target parameter with the name of the corresponding unknown parameter
       strcpy(fzw.fc.name[fzw.unknown_parameters_index[counter]],unknown_namestrings[index_target]);
-      //printf("%d, %d: %s\n",counter,index_target,target_namestrings[index_target]);
     }
 
     if (unknown_parameters_size == 1){
@@ -306,14 +305,12 @@ int input_init(
       /** Here is our guess: */
       class_call(input_get_guess(&x1, &dxdy, &fzw, errmsg),
                  errmsg, errmsg);
-      //      printf("x1= %g\n",x1);
       class_call(input_fzerofun_1d(x1,
                                    &fzw,
                                    &f1,
                                    errmsg),
                  errmsg, errmsg);
       fevals++;
-      //printf("x1= %g, f1= %g\n",x1,f1);
 
       dx = 1.5*f1*dxdy;
 
@@ -325,8 +322,6 @@ int input_init(
         for (iter2=1; iter2 <= 3; iter2++) {
           return_function = input_fzerofun_1d(x2,&fzw,&f2,errmsg);
           fevals++;
-          //printf("x2= %g, f2= %g\n",x2,f2);
-          //fprintf(stderr,"iter2=%d\n",iter2);
 
           if (return_function ==_SUCCESS_) {
             break;
@@ -336,7 +331,6 @@ int input_init(
             x2 = x1-dx;
           }
           else {
-            //fprintf(stderr,"get here\n");
             class_stop(errmsg,errmsg);
           }
         }
@@ -344,7 +338,7 @@ int input_init(
         if (f1*f2<0.0){
           /** root has been bracketed */
           if (0==1){//(pba->background_verbose > 4){
-            printf("Root has been bracketed after %d iterations: [%g, %g].\n",iter,x1,x2);
+            mpi_printf("Root has been bracketed after %d iterations: [%g, %g].\n",iter,x1,x2);
           }
           break;
         }
@@ -369,8 +363,8 @@ int input_init(
       /* Store xzero */
       sprintf(fzw.fc.value[fzw.unknown_parameters_index[0]],"%e",xzero);
       if (input_verbose > 0) {
-        fprintf(stdout,"Computing unknown input parameters\n");
-        fprintf(stdout," -> found %s = %s\n",
+        mpi_printf("Computing unknown input parameters\n");
+        mpi_printf(" -> found %s = %s\n",
                 fzw.fc.name[fzw.unknown_parameters_index[0]],
                 fzw.fc.value[fzw.unknown_parameters_index[0]]);
       }
@@ -400,7 +394,7 @@ int input_init(
                  errmsg,errmsg);
 
       if (input_verbose > 0) {
-        fprintf(stdout,"Computing unknown input parameters\n");
+        mpi_printf("Computing unknown input parameters\n");
       }
 
       /* Store xzero */
@@ -408,9 +402,9 @@ int input_init(
         sprintf(fzw.fc.value[fzw.unknown_parameters_index[counter]],
                 "%e",x_inout[counter]);
         if (input_verbose > 0) {
-          fprintf(stdout," -> found %s = %s\n",
-                  fzw.fc.name[fzw.unknown_parameters_index[counter]],
-                  fzw.fc.value[fzw.unknown_parameters_index[counter]]);
+          mpi_printf(" -> found %s = %s\n",
+		     fzw.fc.name[fzw.unknown_parameters_index[counter]],
+		     fzw.fc.value[fzw.unknown_parameters_index[counter]]);
         }
       }
 
@@ -419,7 +413,7 @@ int input_init(
     }
 
     if (input_verbose > 1) {
-      fprintf(stdout,"Shooting completed using %d function evaluations\n",fevals);
+      mpi_printf("Shooting completed using %d function evaluations\n",fevals);
     }
 
 
@@ -486,7 +480,8 @@ int input_init(
 
     fprintf(param_output,"# List of input/precision parameters actually read\n");
     fprintf(param_output,"# (all other parameters set to default values)\n");
-    fprintf(param_output,"# Obtained with CLASS %s (for developpers: svn version %s)\n",_VERSION_,_SVN_VERSION_);
+    fprintf(param_output,"# Obtained with CLASS %s (for developpers: svn version %s)\n",
+	    _VERSION_,_SVN_VERSION_);
     fprintf(param_output,"#\n");
     fprintf(param_output,"# This file can be used as the input file of another run\n");
     fprintf(param_output,"#\n");
@@ -515,7 +510,8 @@ int input_init(
 
     for (i=0; i<pfc->size; i++) {
       if (pfc->read[i] == _FALSE_)
-        fprintf(stdout,"[WARNING: input line not recognized and not taken into account: '%s=%s']\n",pfc->name[i],pfc->value[i]);
+        mpi_printf("[WARNING: input line not recognized and not taken into account: '%s=%s']\n",
+		   pfc->name[i],pfc->value[i]);
     }
   }
 
@@ -597,7 +593,6 @@ int input_read_parameters(
 
   /** (a) background parameters */
 
-#ifdef _DAM_MOD
   /* GR terms */
   class_read_double("gr_epsilon",pba->gr_epsilon);
   /* f_NL */
@@ -606,7 +601,6 @@ int input_read_parameters(
     pba->do_f_nl=_TRUE_;
     ppt->do_f_nl=_TRUE_;
   }
-#endif //_DAM_MOD
 
   /* scale factor today (arbitrary) */
   class_read_double("a_today",pba->a_today);
@@ -700,7 +694,9 @@ int input_read_parameters(
              errmsg);
   class_test((flag1 == _TRUE_) && (flag2 == _TRUE_),
              errmsg,
-             "In input file, you can only enter one of N_eff (deprecated syntax) or N_ur (up-to-date syntax), since they botgh describe the same, i.e. the contribution ukltra-relativistic species to the effective neutrino number");
+             "In input file, you can only enter one of N_eff (deprecated syntax) or N_ur "
+	     "(up-to-date syntax), since they botgh describe the same, i.e. the "
+	     "contribution ukltra-relativistic species to the effective neutrino number");
   if (flag2 == _TRUE_) {
     param1 = param2;
     flag1 = _TRUE_;
@@ -902,11 +898,9 @@ int input_read_parameters(
         class_call(background_ncdm_M_from_Omega(ppr,pba,n),
                    pba->error_message,
                    errmsg);
-        //printf("M_ncdm:%g\n",pba->M_ncdm[n]);
         pba->m_ncdm_in_eV[n] = _k_B_/_eV_*pba->T_ncdm[n]*pba->M_ncdm[n]*pba->T_cmb;
       }
       pba->Omega0_ncdm_tot += pba->Omega0_ncdm[n];
-      //printf("Adding %g to total Omega..\n",pba->Omega0_ncdm[n]);
     }
   }
   Omega_tot += pba->Omega0_ncdm_tot;
@@ -928,7 +922,8 @@ int input_read_parameters(
              errmsg);
   class_test((flag1 == _TRUE_) && (flag2 == _TRUE_),
              errmsg,
-             "In input file, you can enter only two out of Omega_Lambda, Omega_de, Omega_k, the third one is inferred");
+             "In input file, you can enter only two out of Omega_Lambda, "
+	     "Omega_de, Omega_k, the third one is inferred");
 
   if ((flag1 == _FALSE_) && (flag2 == _FALSE_)) {
     pba->Omega0_lambda = 1.-pba->Omega0_k-Omega_tot;
@@ -975,7 +970,8 @@ int input_read_parameters(
 
   if (flag1 == _TRUE_) {
 
-    if ((strstr(string1,"HYREC") != NULL) || (strstr(string1,"hyrec") != NULL) || (strstr(string1,"HyRec") != NULL)) {
+    if ((strstr(string1,"HYREC") != NULL) || (strstr(string1,"hyrec") != NULL) ||
+	(strstr(string1,"HyRec") != NULL)) {
       pth->recombination = hyrec;
     }
 
@@ -1129,6 +1125,13 @@ int input_read_parameters(
     }
 
   }
+#ifdef _DAM_MPI
+  else
+    mpi_abort(1,"MPI: No output was specified\n");
+
+  if(ppt->has_cl_number_count == _FALSE_)
+    mpi_abort(1,"MPI: Number counts not required, use serial version\n");
+#endif //_DAM_MPI
 
   if (ppt->has_cl_cmb_temperature == _TRUE_) {
 
@@ -1155,9 +1158,11 @@ int input_read_parameters(
       if ((strstr(string1,"pol") != NULL) || (strstr(string1,"Pol") != NULL))
         ppt->switch_pol = 1;
 
-      class_test((ppt->switch_sw == 0) && (ppt->switch_eisw == 0) && (ppt->switch_lisw == 0) && (ppt->switch_dop == 0) && (ppt->switch_pol == 0),
+      class_test((ppt->switch_sw == 0) && (ppt->switch_eisw == 0) && (ppt->switch_lisw == 0) &&
+		 (ppt->switch_dop == 0) && (ppt->switch_pol == 0),
                  errmsg,
-                 "In the field 'output', you selected CMB temperature, but in the field 'temperature contributions', you removed all contributions");
+                 "In the field 'output', you selected CMB temperature, but in the field 'temperature "
+		 "contributions', you removed all contributions");
 
       class_read_double("early/late isw redshift",ppt->eisw_lisw_split_z);
 
@@ -1175,18 +1180,6 @@ int input_read_parameters(
 
       if (strstr(string1,"density") != NULL)
         ppt->has_nc_density = _TRUE_;
-#ifndef _DAM_MOD
-      if (strstr(string1,"rsd") != NULL)
-        ppt->has_nc_rsd = _TRUE_;
-      if (strstr(string1,"lensing") != NULL)
-        ppt->has_nc_lens = _TRUE_;
-      if (strstr(string1,"gr") != NULL)
-        ppt->has_nc_gr = _TRUE_;
-
-      class_test((ppt->has_nc_density == _FALSE_) && (ppt->has_nc_rsd == _FALSE_) && (ppt->has_nc_lens == _FALSE_) && (ppt->has_nc_gr == _FALSE_),
-                 errmsg,
-                 "In the field 'output', you selected number count Cl's, but in the field 'number count contributions', you removed all contributions");
-#else //_DAM_MOD
       if (strstr(string1,"rsd1") != NULL)
         ppt->has_nc_rsd1 = _TRUE_;
       if (strstr(string1,"rsd2") != NULL)
@@ -1213,7 +1206,6 @@ int input_read_parameters(
 		 (ppt->has_nc_gr4 == _FALSE_) && (ppt->has_nc_gr5 == _FALSE_),errmsg,
                  "In the field 'output', you selected number count Cl's, but in the"
 		 "field 'number count contributions', you removed all contributions");
-#endif //_DAM_MOD
 
     }
 
@@ -1752,7 +1744,8 @@ int input_read_parameters(
 
   }
 
-  if ((ppt->has_pk_matter == _TRUE_) || (ppt->has_density_transfers == _TRUE_) || (ppt->has_velocity_transfers == _TRUE_)) {
+  if ((ppt->has_pk_matter == _TRUE_) || (ppt->has_density_transfers == _TRUE_) || 
+      (ppt->has_velocity_transfers == _TRUE_)) {
 
     class_call(parser_read_double(pfc,"P_k_max_h/Mpc",&param1,&flag1,errmsg),
                errmsg,
@@ -1782,7 +1775,8 @@ int input_read_parameters(
     if (flag1 == _TRUE_) {
       class_test(int1 > _Z_PK_NUM_MAX_,
                  errmsg,
-                 "you want to write some output for %d different values of z, hence you should increase _Z_PK_NUM_MAX_ in include/output.h to at least this number",
+                 "you want to write some output for %d different values of z, hence you should increase "
+		 "_Z_PK_NUM_MAX_ in include/output.h to at least this number",
                  int1);
       pop->z_pk_num = int1;
       for (i=0; i<int1; i++) {
@@ -1818,50 +1812,116 @@ int input_read_parameters(
 
     if (flag1 == _TRUE_) {
       if (strstr(string1,"gaussian") != NULL) {
-        ppt->selection=gaussian;
+        ptr->selection=gaussian;
       }
       else if (strstr(string1,"tophat") != NULL) {
-        ppt->selection=tophat;
+        ptr->selection=tophat;
       }
       else if (strstr(string1,"dirac") != NULL) {
-        ppt->selection=dirac;
+        ptr->selection=dirac;
       }
       else {
         class_stop(errmsg,"In selection function input: type %s is unclear",string1);
       }
     }
+#ifdef _DAM_MPI
+    else {
+      mpi_abort(1,"MPI: selection not specified\n");
+    }
+#endif //_DAM_MPI
 
-    class_call(parser_read_list_of_doubles(pfc,
-                                           "selection_mean",
-                                           &(int1),
-                                           &(pointer1),
-                                           &flag1,
-                                           errmsg),
-               errmsg,
-               errmsg);
+#ifdef _DAM_MPI
+    class_call(parser_read_string(pfc,"selection_bins",&(string1),&(flag1),errmsg),
+               errmsg,errmsg);
+    
+    if(flag1 == _FALSE_) {
+      mpi_abort(1,"Selection bins were not provided\n");
+    }
+    
+    int ii;
+    char ch[1024];
+    FILE *fi=fopen(string1,"r");
+    double *z_means,*z_widths;
+    if(fi==NULL)
+      mpi_abort(1,"Couldn't open file %s\n",string1);
 
+    int1=0;
+    while((fgets(ch,sizeof(ch),fi))!=NULL) {
+      int1++;
+    }
+    rewind(fi);
+    
+    z_means=malloc(int1*sizeof(double));
+    z_widths=malloc(int1*sizeof(double));
+    for(ii=0;ii<int1;ii++) {
+      int stat=fscanf(fi,"%lf %lf",&(z_means[ii]),&(z_widths[ii]));
+      if(stat!=2)
+	mpi_abort(1,"Error reading file %s, line %d\n",string1,ii+1);
+    }
+    fclose(fi);
+
+    mpi_share_bins(int1);
+
+    class_test(Mpi_nbins_here > _SELECTION_NUM_MAX_,errmsg,
+	       "you want to compute density Cl's for %d different bins, hence you should "
+	       "increase _SELECTION_NUM_MAX_ in include/transfer.h to at least this number",
+	       Mpi_nbins_here);
+
+    ptr->selection_num=Mpi_nbins_here;
+    for(i=0;i<Mpi_nbins_here;i++) {
+      int bin_id=Mpi_bin_ids_here[i];
+      class_test((z_means[bin_id] < 0.) || (z_means[bin_id] > 1000.),errmsg,
+		 "input of selection functions: you asked for a mean redshift equal to %e, sounds odd",
+		 z_means[bin_id]);
+      class_test((z_widths[bin_id] < 0.) || (z_widths[bin_id] > 1000.),errmsg,
+		 "input of selection functions: you asked for a width redshift equal to %e, sounds odd",
+		 z_widths[bin_id]);
+      ptr->selection_mean[i] = z_means[bin_id];
+      ptr->selection_width[i] = z_widths[bin_id];
+#ifdef _DAM_DEBUG
+      printf("Node %d: bin %d mean %lf, width %lf\n",Mpi_this_node,bin_id,
+	     ptr->selection_mean[i],ptr->selection_width[i]);
+#endif //_DAM_DEBUG
+    }
+    ppt->selection_mean_min=z_means[0];
+    free(z_means);
+    free(z_widths);
+
+    class_read_int("non_diagonal",psp->non_diag);
+    if ((psp->non_diag<0) || (psp->non_diag>=Mpi_nbins_total)) {
+      class_stop(errmsg,"Input for non_diagonal is %d, while it is expected to be between 0 and %d\n",
+		 psp->non_diag,ptr->selection_num-1);
+    }
+    mpi_distribute_spectra(Mpi_nbins_total,psp->non_diag);
+#ifdef _DAM_DEBUG
+    mpi_print_bins();
+#endif //_DAM_DEBUG
+#else //_DAM_MPI
+    class_call(parser_read_list_of_doubles(pfc,"selection_mean",&(int1),&(pointer1),
+                                           &flag1,errmsg),errmsg,errmsg);
     if ((flag1 == _TRUE_) && (int1>0)) {
-
-      class_test(int1 > _SELECTION_NUM_MAX_,
-                 errmsg,
-                 "you want to compute density Cl's for %d different bins, hence you should increase _SELECTION_NUM_MAX_ in include/transfer.h to at least this number",
+      class_test(int1 > _SELECTION_NUM_MAX_,errmsg,
+                 "you want to compute density Cl's for %d different bins, hence you should "
+		 "increase _SELECTION_NUM_MAX_ in include/transfer.h to at least this number",
                  int1);
 
-      ppt->selection_num = int1;
+      ptr->selection_num = int1;
       for (i=0; i<int1; i++) {
         class_test((pointer1[i] < 0.) || (pointer1[i] > 1000.),
                    errmsg,
                    "input of selection functions: you asked for a mean redshift equal to %e, sounds odd",
                    pointer1[i]);
-        ppt->selection_mean[i] = pointer1[i];
+        ptr->selection_mean[i] = pointer1[i];
       }
+      ppt->selection_mean_min=pointer1[0];
       free(pointer1);
+
       /* first set all widths to default; correct eventually later */
       for (i=1; i<int1; i++) {
-        class_test(ppt->selection_mean[i]<=ppt->selection_mean[i-1],
-                   errmsg,
-                   "input of selection functions: the list of mean redshifts must be passed in growing order; you entered %e before %e",ppt->selection_mean[i-1],ppt->selection_mean[i]);
-        ppt->selection_width[i] = ppt->selection_width[0];
+        class_test(ptr->selection_mean[i]<=ptr->selection_mean[i-1],errmsg,
+                   "input of selection functions: the list of mean redshifts must be passed in "
+		   "growing order; you entered %e before %e",ptr->selection_mean[i-1],ptr->selection_mean[i]);
+        ptr->selection_width[i] = ptr->selection_width[0];
       }
 
       class_call(parser_read_list_of_doubles(pfc,
@@ -1876,31 +1936,35 @@ int input_read_parameters(
       if ((flag1 == _TRUE_) && (int1>0)) {
 
         if (int1==1) {
-          for (i=0; i<ppt->selection_num; i++) {
-            ppt->selection_width[i] = pointer1[0];
+          for (i=0; i<ptr->selection_num; i++) {
+            ptr->selection_width[i] = pointer1[0];
           }
         }
-        else if (int1==ppt->selection_num) {
+        else if (int1==ptr->selection_num) {
           for (i=0; i<int1; i++) {
-            ppt->selection_width[i] = pointer1[i];
+            ptr->selection_width[i] = pointer1[i];
           }
         }
         else {
           class_stop(errmsg,
-                     "In input for selection function, you asked for %d bin centers and %d bin widths; number of bins unclear; you should pass either one bin width (common to all bins) or %d bin witdths",
-                     ppt->selection_num,int1,ppt->selection_num);
+                     "In input for selection function, you asked for %d bin centers and %d "
+		     "bin widths; number of bins unclear; you should pass either one bin "
+		     "width (common to all bins) or %d bin witdths",
+                     ptr->selection_num,int1,ptr->selection_num);
         }
         free(pointer1);
       }
     }
 
-    if (ppt->selection_num>1) {
+    if (ptr->selection_num>1) {
       class_read_int("non_diagonal",psp->non_diag);
-      if ((psp->non_diag<0) || (psp->non_diag>=ppt->selection_num))
+      if ((psp->non_diag<0) || (psp->non_diag>=ptr->selection_num))
         class_stop(errmsg,
                    "Input for non_diagonal is %d, while it is expected to be between 0 and %d\n",
-                   psp->non_diag,ppt->selection_num-1);
+                   psp->non_diag,ptr->selection_num-1);
     }
+#endif //_DAM_MPI
+    //HERE
 
     class_call(parser_read_string(pfc,
                                   "dNdz_selection",
@@ -1936,7 +2000,6 @@ int input_read_parameters(
       }
     }
 
-#ifdef _DAM_MOD
     class_call(parser_read_string(pfc,
                                   "bias_function",
                                   &(string1),
@@ -1944,19 +2007,18 @@ int input_read_parameters(
                                   errmsg),
                errmsg,
                errmsg);
-
-   if ((flag1 == _TRUE_)) {
-     ptr->has_bz_file = _TRUE_;
-     class_read_string("bias_function",ptr->bz_file_name);
-   }
-#endif //_DAM_MOD
+    
+    if ((flag1 == _TRUE_)) {
+      ptr->has_bz_file = _TRUE_;
+      class_read_string("bias_function",ptr->bz_file_name);
+    }
     class_read_double("bias",ptr->bias);
     class_read_double("s_bias",ptr->s_bias);
 
   }
 
   class_read_string("root",pop->root);
-  sprintf(ppt->root,pop->root);
+  mpi_printf("Output prefix is %s\n",pop->root);
 
   class_call(parser_read_string(pfc,
                                 "headers",
@@ -2143,7 +2205,8 @@ int input_read_parameters(
   }
 
   /** derivatives of baryon sound speed only computed if some non-minimal tight-coupling schemes is requested */
-  if ((ppr->tight_coupling_approximation == (int)first_order_CLASS) || (ppr->tight_coupling_approximation == (int)second_order_CLASS)) {
+  if ((ppr->tight_coupling_approximation == (int)first_order_CLASS) || 
+      (ppr->tight_coupling_approximation == (int)second_order_CLASS)) {
     pth->compute_cb2_derivatives = _TRUE_;
   }
 
@@ -2164,8 +2227,10 @@ int input_read_parameters(
   class_read_double("perturb_sampling_stepsize",ppr->perturb_sampling_stepsize);
 
   class_read_int("radiation_streaming_approximation",ppr->radiation_streaming_approximation);
-  class_read_double("radiation_streaming_trigger_tau_over_tau_k",ppr->radiation_streaming_trigger_tau_over_tau_k);
-  class_read_double("radiation_streaming_trigger_tau_c_over_tau",ppr->radiation_streaming_trigger_tau_c_over_tau);
+  class_read_double("radiation_streaming_trigger_tau_over_tau_k",
+		    ppr->radiation_streaming_trigger_tau_over_tau_k);
+  class_read_double("radiation_streaming_trigger_tau_c_over_tau",
+		    ppr->radiation_streaming_trigger_tau_c_over_tau);
 
   class_read_int("ur_fluid_approximation",ppr->ur_fluid_approximation);
   class_read_int("ncdm_fluid_approximation",ppr->ncdm_fluid_approximation);
@@ -2174,17 +2239,23 @@ int input_read_parameters(
 
   class_test(ppr->ur_fluid_trigger_tau_over_tau_k==ppr->radiation_streaming_trigger_tau_over_tau_k,
              errmsg,
-             "please choose different values for precision parameters ur_fluid_trigger_tau_over_tau_k and radiation_streaming_trigger_tau_over_tau_k, in order to avoid switching two approximation schemes at the same time");
+             "please choose different values for precision parameters ur_fluid_trigger_tau_over_tau_k "
+	     "and radiation_streaming_trigger_tau_over_tau_k, in order to avoid switching two "
+	     "approximation schemes at the same time");
 
   if (pba->N_ncdm>0) {
 
     class_test(ppr->ncdm_fluid_trigger_tau_over_tau_k==ppr->radiation_streaming_trigger_tau_over_tau_k,
                errmsg,
-               "please choose different values for precision parameters ncdm_fluid_trigger_tau_over_tau_k and radiation_streaming_trigger_tau_over_tau_k, in order to avoid switching two approximation schemes at the same time");
+               "please choose different values for precision parameters ncdm_fluid_trigger_tau_over_tau_k "
+	       "and radiation_streaming_trigger_tau_over_tau_k, in order to avoid switching two "
+	       "approximation schemes at the same time");
 
     class_test(ppr->ncdm_fluid_trigger_tau_over_tau_k==ppr->ur_fluid_trigger_tau_over_tau_k,
                errmsg,
-               "please choose different values for precision parameters ncdm_fluid_trigger_tau_over_tau_k and ur_fluid_trigger_tau_over_tau_k, in order to avoid switching two approximation schemes at the same time");
+               "please choose different values for precision parameters ncdm_fluid_trigger_tau_over_tau_k "
+	       "and ur_fluid_trigger_tau_over_tau_k, in order to avoid switching two approximation schemes "
+	       "at the same time");
 
   }
 
@@ -2199,8 +2270,10 @@ int input_read_parameters(
   class_read_double("primordial_inflation_pt_stepsize",ppr->primordial_inflation_pt_stepsize);
   class_read_double("primordial_inflation_bg_stepsize",ppr->primordial_inflation_bg_stepsize);
   class_read_double("primordial_inflation_tol_integration",ppr->primordial_inflation_tol_integration);
-  class_read_double("primordial_inflation_attractor_precision_pivot",ppr->primordial_inflation_attractor_precision_pivot);
-  class_read_double("primordial_inflation_attractor_precision_initial",ppr->primordial_inflation_attractor_precision_initial);
+  class_read_double("primordial_inflation_attractor_precision_pivot",
+		    ppr->primordial_inflation_attractor_precision_pivot);
+  class_read_double("primordial_inflation_attractor_precision_initial",
+		    ppr->primordial_inflation_attractor_precision_initial);
   class_read_int("primordial_inflation_attractor_maxit",ppr->primordial_inflation_attractor_maxit);
   class_read_double("primordial_inflation_jump_initial",ppr->primordial_inflation_jump_initial);
   class_read_double("primordial_inflation_tol_curvature",ppr->primordial_inflation_tol_curvature);
@@ -2307,7 +2380,8 @@ int input_read_parameters(
   if (flag1 == _TRUE_) {
     class_test(int1 > _MAX_NUMBER_OF_K_FILES_,
                errmsg,
-               "you want to write some output for %d different values of k, hence you should increase _MAX_NUMBER_OF_K_FILES_ in include/perturbations.h to at least this number",
+               "you want to write some output for %d different values of k, hence you should increase "
+	       "_MAX_NUMBER_OF_K_FILES_ in include/perturbations.h to at least this number",
                int1);
     ppt->k_output_values_num = int1;
     for (i=0; i<int1; i++) {
@@ -2362,11 +2436,9 @@ int input_default_params(
   sigma_B = 2. * pow(_PI_,5) * pow(_k_B_,4) / 15. / pow(_h_P_,3) / pow(_c_,2);
 
   /** - background structure */
-#ifdef _DAM_MOD
   pba->gr_epsilon=1;
   pba->f_nl=0;
   pba->do_f_nl=_FALSE_;
-#endif //_DAM_MOD
   pba->h = 0.704;
   pba->H0 = pba->h * 1.e5 / _c_;
   pba->T_cmb = 2.726;
@@ -2430,10 +2502,8 @@ int input_default_params(
   pth->compute_cb2_derivatives=_FALSE_;
 
   /** - perturbation structure */
-#ifdef _DAM_MOD
   ppt->do_f_nl=_FALSE_;
   ppt->inv_growth_0=1.;
-#endif //_DAM_MOD
   ppt->has_cl_cmb_temperature = _FALSE_;
   ppt->has_cl_cmb_polarization = _FALSE_;
   ppt->has_cl_cmb_lensing_potential = _FALSE_;
@@ -2446,11 +2516,6 @@ int input_default_params(
   ppt->has_nl_corrections_based_on_delta_m = _FALSE_;
 
   ppt->has_nc_density = _FALSE_;
-#ifndef _DAM_MOD
-  ppt->has_nc_rsd = _FALSE_;
-  ppt->has_nc_lens = _FALSE_;
-  ppt->has_nc_gr = _FALSE_;
-#else //_DAM_MOD
   ppt->has_nc_rsd1 = _FALSE_;
   ppt->has_nc_rsd2 = _FALSE_;
   ppt->has_nc_rsd3 = _FALSE_;
@@ -2460,7 +2525,6 @@ int input_default_params(
   ppt->has_nc_gr3 = _FALSE_;
   ppt->has_nc_gr4 = _FALSE_;
   ppt->has_nc_gr5 = _FALSE_;
-#endif //_DAM_MOD
 
   ppt->switch_sw = 1;
   ppt->switch_eisw = 1;
@@ -2567,10 +2631,10 @@ int input_default_params(
 
   /** - transfer structure */
 
-  ppt->selection_num=1;
-  ppt->selection=gaussian;
-  ppt->selection_mean[0]=1.;
-  ppt->selection_width[0]=0.1;
+  ptr->selection_num=1;
+  ptr->selection=gaussian;
+  ptr->selection_mean[0]=1.;
+  ptr->selection_width[0]=0.1;
   ptr->lcmb_rescale=1.;
   ptr->lcmb_pivot=0.1;
   ptr->lcmb_tilt=0.;
@@ -2579,10 +2643,8 @@ int input_default_params(
   ptr->has_nz_file = _FALSE_;
   ptr->has_nz_evo_analytic = _FALSE_;
   ptr->has_nz_evo_file = _FALSE_;
-#ifdef _DAM_MOD
   ptr->has_bz_analytic = _FALSE_;
   ptr->has_bz_file = _FALSE_;
-#endif //_DAM_MOD
   ptr->bias = 1.;
   ptr->s_bias = 0.;
 
@@ -2967,7 +3029,6 @@ int class_fzero_ridder(int (*func)(double x, void *param, double *y, ErrorMsg er
       s=sqrt(fm*fm-fl*fh);
       if (s == 0.0){
         *xzero = ans;
-        //printf("Success 1\n");
         return _SUCCESS_;
       }
       xnew=xm+(xm-xl)*((fl >= fh ? 1.0 : -1.0)*fm/s);
@@ -2981,7 +3042,6 @@ int class_fzero_ridder(int (*func)(double x, void *param, double *y, ErrorMsg er
       *fevals = (*fevals)+1;
       if (fnew == 0.0){
         *xzero = ans;
-        //printf("Success 2, ans=%g\n",ans);
         return _SUCCESS_;
       }
       if (NRSIGN(fm,fnew) != fm) {
@@ -2998,7 +3058,6 @@ int class_fzero_ridder(int (*func)(double x, void *param, double *y, ErrorMsg er
       } else return _FAILURE_;
       if (fabs(xh-xl) <= xtol) {
         *xzero = ans;
-        //        printf("Success 3\n");
         return _SUCCESS_;
       }
     }
@@ -3072,14 +3131,14 @@ int input_try_unknown_parameters(double * unknown_parameter,
   /** Do computations */
   if (pfzw->required_computation_stage >= cs_background){
     if (input_verbose>2)
-      printf("Stage 1: background\n");
+      mpi_printf("Stage 1: background\n");
     ba.background_verbose = 0;
     class_call(background_init(&pr,&ba), ba.error_message, errmsg);
   }
 
   if (pfzw->required_computation_stage >= cs_thermodynamics){
    if (input_verbose>2)
-     printf("Stage 2: thermodynamics\n");
+     mpi_printf("Stage 2: thermodynamics\n");
     pr.recfast_Nz0 = 10000;
     th.thermodynamics_verbose = 0;
     class_call(thermodynamics_init(&pr,&ba,&th), th.error_message, errmsg);
@@ -3087,35 +3146,35 @@ int input_try_unknown_parameters(double * unknown_parameter,
 
   if (pfzw->required_computation_stage >= cs_perturbations){
        if (input_verbose>2)
-         printf("Stage 3: perturbations\n");
+         mpi_printf("Stage 3: perturbations\n");
     pt.perturbations_verbose = 0;
     class_call(perturb_init(&pr,&ba,&th,&pt), pt.error_message, errmsg);
   }
 
   if (pfzw->required_computation_stage >= cs_primordial){
     if (input_verbose>2)
-      printf("Stage 4: primordial\n");
+      mpi_printf("Stage 4: primordial\n");
     pm.primordial_verbose = 0;
     class_call(primordial_init(&pr,&pt,&pm), pm.error_message, errmsg);
   }
 
   if (pfzw->required_computation_stage >= cs_nonlinear){
     if (input_verbose>2)
-      printf("Stage 5: nonlinear\n");
+      mpi_printf("Stage 5: nonlinear\n");
     nl.nonlinear_verbose = 0;
     class_call(nonlinear_init(&pr,&ba,&th,&pt,&pm,&nl), nl.error_message, errmsg);
   }
 
   if (pfzw->required_computation_stage >= cs_transfer){
     if (input_verbose>2)
-      printf("Stage 6: transfer\n");
+      mpi_printf("Stage 6: transfer\n");
     tr.transfer_verbose = 0;
     class_call(transfer_init(&pr,&ba,&th,&pt,&nl,&tr), tr.error_message, errmsg);
   }
 
   if (pfzw->required_computation_stage >= cs_spectra){
     if (input_verbose>2)
-      printf("Stage 7: spectra\n");
+      mpi_printf("Stage 7: spectra\n");
     sp.spectra_verbose = 0;
     class_call(spectra_init(&pr,&ba,&pt,&pm,&nl,&tr,&sp),sp.error_message, errmsg);
   }
@@ -3239,7 +3298,6 @@ int input_get_guess(double *xguess,
         a_decay = pow(1+(gamma*gamma-1.)/Omega_M,-1./3.);
       xguess[index_guess] = pfzw->target_value[index_guess]/a_decay;
       dxdy[index_guess] = 1./a_decay;
-      //printf("x = Omega_ini_guess = %g, dxdy = %g\n",*xguess,*dxdy);
       break;
     case omega_dcdmdr:
       Omega_M = ba.Omega0_cdm+ba.Omega0_dcdmdr+ba.Omega0_b;
@@ -3258,10 +3316,8 @@ int input_get_guess(double *xguess,
         a_decay = pow(1+(gamma*gamma-1.)/Omega_M,-1./3.);
       xguess[index_guess] = pfzw->target_value[index_guess]/ba.h/ba.h/a_decay;
       dxdy[index_guess] = 1./a_decay/ba.h/ba.h;
-        //printf("x = Omega_ini_guess = %g, dxdy = %g\n",*xguess,*dxdy);
       break;
     }
-    //printf("xguess = %g\n",xguess[index_guess]);
   }
 
   for (i=0; i<pfzw->fc.size; i++) {

@@ -1235,7 +1235,6 @@ int spectra_init(
 
   /** - initialize indices and allocate some of the arrays in the
       spectra structure */
-
   class_call(spectra_indices(pba,ppt,ptr,ppm,psp),
              psp->error_message,
              psp->error_message);
@@ -1243,10 +1242,15 @@ int spectra_init(
   /** - deal with C_l's, if any */
 
   if (ppt->has_cls == _TRUE_) {
-
+#ifdef _DAM_DEBUG
+    printf("Node %d: init spectra_cls\n",Mpi_this_node);
+#endif //_DAM_DEBUG
     class_call(spectra_cls(pba,ppt,ptr,ppm,psp),
                psp->error_message,
                psp->error_message);
+#ifdef _DAM_DEBUG
+    printf("Node %d: done spectra_cls\n",Mpi_this_node);
+#endif //_DAM_DEBUG
   }
   else {
     psp->ct_size=0;
@@ -2035,7 +2039,6 @@ int spectra_cls(
                                                      transfer_ic2),
                                   psp->error_message,
                                   psp->error_message);
-
             } /* end of loop over l */
 
 #ifdef _OPENMP
@@ -2147,6 +2150,8 @@ int spectra_compute_cl(
 
 #ifdef _DAM_MPI
   int *cl_calculated=calloc(psp->ct_size,sizeof(int));
+  if(cl_calculated==NULL)
+    mpi_abort(1,"Baaaaad thing\n");
 #endif //_DAM_MPI
 
   index_ic1_ic2 = index_symmetric_matrix(index_ic1,index_ic2,psp->ic_size[index_md]);

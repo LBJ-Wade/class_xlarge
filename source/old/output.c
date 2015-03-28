@@ -15,7 +15,6 @@
 
 #include "output.h"
 
-#ifdef _DAM_MOD
 double get_f_nl_at_k(double k,struct perturbs *ppt);
 
 int output_transfer_check(struct background *pba,
@@ -95,7 +94,246 @@ int output_transfer_check(struct background *pba,
 
   return _SUCCESS_;
 }
-#endif //_DAM_MOD
+
+#ifdef _DAM_MPI
+FILE *fopen_protected_with_header(char *fname,char *mode)
+{
+  FILE *f=fopen(fname,mode);
+  if(f==NULL)
+    mpi_abort(1,"Couldn't open file %s\n",fname);
+  fprintf(f,"# File written by node %d\n",Mpi_this_node);
+  fprintf(f,"# 1st column: l\n");
+  fprintf(f,"# 2nd column: l*(l+1)*C_l/(2*pi)\n");
+  fprintf(f,"\n");
+
+  return f;
+}
+
+int mpi_output_write_cls(struct spectra * psp,
+			 struct output * pop)
+{
+  int index_d1,index_d2,ii,l;
+  char fname[256],prefix[256];
+  FILE *fo_tt=NULL;
+  FILE *fo_ee=NULL;
+  FILE *fo_te=NULL;
+  FILE *fo_bb=NULL;
+  FILE *fo_pp=NULL;
+  FILE *fo_tp=NULL;
+  FILE *fo_ep=NULL;
+  FILE **fo_dd=NULL;
+  FILE **fo_td=NULL;
+  FILE **fo_pd=NULL;
+  FILE **fo_ll=NULL;
+  FILE **fo_tl=NULL;
+  FILE **fo_dl=NULL;
+  double *cl;
+  
+  sprintf(prefix,"%s_cl",pop->root);
+
+  cl=malloc(psp->ct_size*sizeof(double));
+  if(cl==NULL)
+    mpi_abort(1,"Out of memory!\n");
+
+  //Open files
+  if(Mpi_this_node==0) {
+    if(psp->has_tt==_TRUE_) {
+      sprintf(fname,"%s_tt.dat",prefix);
+      fo_tt=fopen_protected_with_header(fname,"w");
+    }
+    if(psp->has_ee==_TRUE_) {
+      sprintf(fname,"%s_ee.dat",prefix);
+      fo_ee=fopen_protected_with_header(fname,"w");
+    }
+    if(psp->has_te==_TRUE_) {
+      sprintf(fname,"%s_te.dat",prefix);
+      fo_te=fopen_protected_with_header(fname,"w");
+    }
+    if(psp->has_bb==_TRUE_) {
+      sprintf(fname,"%s_bb.dat",prefix);
+      fo_bb=fopen_protected_with_header(fname,"w");
+    }
+    if(psp->has_pp==_TRUE_) {
+      sprintf(fname,"%s_pp.dat",prefix);
+      fo_pp=fopen_protected_with_header(fname,"w");
+    }
+    if(psp->has_tp==_TRUE_) {
+      sprintf(fname,"%s_tp.dat",prefix);
+      fo_tp=fopen_protected_with_header(fname,"w");
+    }
+    if(psp->has_ep==_TRUE_) {
+      sprintf(fname,"%s_ep.dat",prefix);
+      fo_ep=fopen_protected_with_header(fname,"w");
+    }
+  }
+
+  if(psp->has_dd==_TRUE_) {
+    fo_dd=malloc(Mpi_cross_here*sizeof(FILE *));
+
+    for(ii=0;ii<Mpi_cross_here;ii++) {
+      int ii1=Mpi_bin_ids_total[Mpi_i1_cross[ii]];
+      int ii2=Mpi_bin_ids_total[Mpi_i2_cross[ii]];
+      index_d1=MIN(ii1,ii2);
+      index_d2=MAX(ii1,ii2);
+      sprintf(fname,"%s_d%dd%d.dat",prefix,index_d1+1,index_d2+1);
+      fo_dd[ii]=fopen_protected_with_header(fname,"w");
+    }
+  }
+  if(psp->has_td==_TRUE_) {
+    fo_td=malloc(Mpi_nbins_here*sizeof(FILE *));
+
+    for(ii=0;ii<Mpi_nbins_here;ii++) {
+      index_d1=Mpi_bin_ids_here[ii];
+      sprintf(fname,"%s_td%d.dat",prefix,index_d1+1);
+      fo_td[ii]=fopen_protected_with_header(fname,"w");
+    }
+  }
+  if(psp->has_pd==_TRUE_) {
+    fo_pd=malloc(Mpi_nbins_here*sizeof(FILE *));
+
+    for(ii=0;ii<Mpi_nbins_here;ii++) {
+      index_d1=Mpi_bin_ids_here[ii];
+      sprintf(fname,"%s_pd%d.dat",prefix,index_d1+1);
+      fo_pd[ii]=fopen_protected_with_header(fname,"w");
+    }
+  }
+  if(psp->has_ll==_TRUE_) {
+    fo_ll=malloc(Mpi_cross_here*sizeof(FILE *));
+
+    for(ii=0;ii<Mpi_cross_here;ii++) {
+      int ii1=Mpi_bin_ids_total[Mpi_i1_cross[ii]];
+      int ii2=Mpi_bin_ids_total[Mpi_i2_cross[ii]];
+      index_d1=MIN(ii1,ii2);
+      index_d2=MAX(ii1,ii2);
+      sprintf(fname,"%s_l%dl%d.dat",prefix,index_d1+1,index_d2+1);
+      fo_ll[ii]=fopen_protected_with_header(fname,"w");
+    }
+  }
+  if(psp->has_tl==_TRUE_) {
+    fo_tl=malloc(Mpi_nbins_here*sizeof(FILE *));
+
+    for(ii=0;ii<Mpi_nbins_here;ii++) {
+      index_d1=Mpi_bin_ids_here[ii];
+      sprintf(fname,"%s_tl%d.dat",prefix,index_d1+1);
+      fo_tl[ii]=fopen_protected_with_header(fname,"w");
+    }
+  }
+  if(psp->has_dl==_TRUE_) {
+    fo_dl=malloc(Mpi_cross_here*sizeof(FILE *));
+
+    for(ii=0;ii<Mpi_cross_here;ii++) {
+      int ii1=Mpi_bin_ids_total[Mpi_i1_cross[ii]];
+      int ii2=Mpi_bin_ids_total[Mpi_i2_cross[ii]];
+      index_d1=MIN(ii1,ii2);
+      index_d2=MAX(ii1,ii2);
+      sprintf(fname,"%s_d%dl%d.dat",prefix,index_d1+1,index_d2+1);
+      fo_dl[ii]=fopen_protected_with_header(fname,"w");
+    }
+  }
+
+  //Write cls
+  for(l=2;l<=psp->l_max_tot;l++) {
+    double factor=l*(l+1)/2./_PI_;
+
+    class_call(spectra_cl_at_l(psp,(double)l,cl,NULL,NULL),
+	       psp->error_message,pop->error_message);
+    if(Mpi_this_node==0) {
+      if(psp->has_tt==_TRUE_)
+	fprintf(fo_tt,"%d %lE\n",l,factor*cl[psp->index_ct_tt]);
+      if(psp->has_ee==_TRUE_)
+	fprintf(fo_ee,"%d %lE\n",l,factor*cl[psp->index_ct_ee]);
+      if(psp->has_te==_TRUE_)
+	fprintf(fo_te,"%d %lE\n",l,factor*cl[psp->index_ct_te]);
+      if(psp->has_bb==_TRUE_)
+	fprintf(fo_bb,"%d %lE\n",l,factor*cl[psp->index_ct_bb]);
+      if(psp->has_pp==_TRUE_)
+	fprintf(fo_pp,"%d %lE\n",l,factor*cl[psp->index_ct_pp]);
+      if(psp->has_tp==_TRUE_)
+	fprintf(fo_tp,"%d %lE\n",l,factor*cl[psp->index_ct_tp]);
+      if(psp->has_ep==_TRUE_)
+	fprintf(fo_ep,"%d %lE\n",l,factor*cl[psp->index_ct_ep]);
+    }
+
+    if(psp->has_dd==_TRUE_) {
+      for(ii=0;ii<Mpi_cross_here;ii++)
+	fprintf(fo_dd[ii],"%d %lE\n",l,factor*cl[psp->index_ct_dd+ii]);
+    }
+    if(psp->has_td==_TRUE_) {
+      for(ii=0;ii<Mpi_nbins_here;ii++)
+	fprintf(fo_td[ii],"%d %lE\n",l,factor*cl[psp->index_ct_td+ii]);
+    }
+    if(psp->has_pd==_TRUE_) {
+      for(ii=0;ii<Mpi_nbins_here;ii++)
+	fprintf(fo_pd[ii],"%d %lE\n",l,factor*cl[psp->index_ct_pd+ii]);
+    }
+    if(psp->has_ll==_TRUE_) {
+      for(ii=0;ii<Mpi_cross_here;ii++)
+	fprintf(fo_ll[ii],"%d %lE\n",l,factor*cl[psp->index_ct_ll+ii]);
+    }
+    if(psp->has_tl==_TRUE_) {
+      for(ii=0;ii<Mpi_nbins_here;ii++)
+	fprintf(fo_tl[ii],"%d %lE\n",l,factor*cl[psp->index_ct_tl+ii]);
+    }
+    if(psp->has_dl==_TRUE_) {
+      for(ii=0;ii<Mpi_cross_here;ii++)
+	fprintf(fo_dl[ii],"%d %lE\n",l,factor*cl[psp->index_ct_dl+ii]);
+    }
+  }
+
+  //Close files
+  if(Mpi_this_node==0) {
+    if(psp->has_tt==_TRUE_)
+      fclose(fo_tt);
+    if(psp->has_ee==_TRUE_)
+      fclose(fo_ee);
+    if(psp->has_te==_TRUE_)
+      fclose(fo_te);
+    if(psp->has_bb==_TRUE_)
+      fclose(fo_bb);
+    if(psp->has_pp==_TRUE_)
+      fclose(fo_pp);
+    if(psp->has_tp==_TRUE_)
+      fclose(fo_tp);
+    if(psp->has_ep==_TRUE_)
+      fclose(fo_ep);
+  }
+
+  if(psp->has_dd==_TRUE_) {
+    for(ii=0;ii<Mpi_cross_here;ii++)
+      fclose(fo_dd[ii]);
+    free(fo_dd);
+  }
+  if(psp->has_td==_TRUE_) {
+    for(ii=0;ii<Mpi_nbins_here;ii++)
+      fclose(fo_td[ii]);
+    free(fo_td);
+  }
+  if(psp->has_pd==_TRUE_) {
+    for(ii=0;ii<Mpi_nbins_here;ii++)
+      fclose(fo_pd[ii]);
+    free(fo_pd);
+  }
+  if(psp->has_ll==_TRUE_) {
+    for(ii=0;ii<Mpi_cross_here;ii++)
+      fclose(fo_ll[ii]);
+    free(fo_ll);
+  }
+  if(psp->has_tl==_TRUE_) {
+    for(ii=0;ii<Mpi_nbins_here;ii++)
+      fclose(fo_tl[ii]);
+    free(fo_tl);
+  }
+  if(psp->has_dl==_TRUE_) {
+    for(ii=0;ii<Mpi_cross_here;ii++)
+      fclose(fo_dl[ii]);
+    free(fo_dl);
+  }
+
+  free(cl);
+
+  return _SUCCESS_;
+}
+#endif //_DAM_MPI
 
 int output_total_cl_at_l(
                          struct spectra * psp,
@@ -198,25 +436,37 @@ int output_init(
 
   /** - check that we really want to output at least one file */
 
-  if ((ppt->has_cls == _FALSE_) && (ppt->has_pk_matter == _FALSE_) && (ppt->has_density_transfers == _FALSE_) && (ppt->has_velocity_transfers == _FALSE_) && (pop->write_background == _FALSE_) && (pop->write_thermodynamics == _FALSE_) && (pop->write_primordial == _FALSE_)) {
+  if ((ppt->has_cls == _FALSE_) &&
+      (ppt->has_pk_matter == _FALSE_) && 
+      (ppt->has_density_transfers == _FALSE_) && 
+      (ppt->has_velocity_transfers == _FALSE_) &&
+      (pop->write_background == _FALSE_) &&
+      (pop->write_thermodynamics == _FALSE_) &&
+      (pop->write_primordial == _FALSE_)) {
     if (pop->output_verbose > 0)
-      printf("No output files requested. Output module skipped.\n");
+      mpi_printf("No output files requested. Output module skipped.\n");
     return _SUCCESS_;
   }
   else {
     if (pop->output_verbose > 0)
-      printf("Writing output files in %s... \n",pop->root);
+      mpi_printf("Writing output files in %s... \n",pop->root);
   }
 
   /** - deal with all anisotropy power spectra C_l's */
 
   if (ppt->has_cls == _TRUE_) {
-
+#ifdef _DAM_MPI
+    mpi_output_write_cls(psp,pop);
+#else //_DAM_MPI
     class_call(output_cl(pba,ppt,psp,ple,pop),
-               pop->error_message,
-               pop->error_message);
+	       pop->error_message,
+	       pop->error_message);
+    #endif //_DAM_MPI
   }
 
+#ifdef _DAM_MPI
+  if(Mpi_this_node==0) {
+#endif //_DAM_MPI
   /** - deal with all Fourier matter power spectra P(k)'s */
 
   if (ppt->has_pk_matter == _TRUE_) {
@@ -271,10 +521,13 @@ int output_init(
 
   }
 
-#ifdef _DAM_MOD
-  printf("DAM: debug files\n");
+#ifdef _DAM_DEBUG
+  mpi_printf("DAM: debug files\n");
   output_transfer_check(pba,ppm,ppt,psp,pop);
-#endif //_DAM_MOD
+#endif //_DAM_DEBUG
+#ifdef _DAM_MPI
+  }
+#endif //_DAM_MPI
 
   return _SUCCESS_;
 
@@ -373,7 +626,6 @@ int output_cl(
   class_alloc(cl_tot,
               psp->ct_size*sizeof(double),
               pop->error_message);
-
 
   if (ple->has_lensed_cls == _TRUE_) {
 

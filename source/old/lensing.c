@@ -165,16 +165,16 @@ int lensing_init(
 
   if (ple->has_lensed_cls == _FALSE_) {
     if (ple->lensing_verbose > 0)
-      printf("No lensing requested. Lensing module skipped.\n");
+      mpi_printf("No lensing requested. Lensing module skipped.\n");
     return _SUCCESS_;
   }
   else {
     if (ple->lensing_verbose > 0) {
-      printf("Computing lensed spectra ");
+      mpi_printf("Computing lensed spectra ");
       if (ppr->accurate_lensing==_TRUE_)
-        printf("(accurate mode)\n");
+        mpi_printf("(accurate mode)\n");
       else
-        printf("(fast mode)\n");
+        mpi_printf("(fast mode)\n");
     }
   }
 
@@ -220,7 +220,6 @@ int lensing_init(
                ple->error_message);
     //fin = omp_get_wtime();
     //cpu_time = (fin-debut);
-    //printf("time in quadrature_gauss_legendre=%4.3f s\n",cpu_time);
 
   } else { /* Crude integration on [0,pi/16]: Riemann sum on theta */
 
@@ -359,7 +358,6 @@ int lensing_init(
              ple->error_message);
   //fin = omp_get_wtime();
   //cpu_time = (fin-debut);
-  //printf("time in lensing_dxx=%4.3f s\n",cpu_time);
 
 
   if (ple->has_te==_TRUE_) {
@@ -525,7 +523,6 @@ int lensing_init(
   }
   //fin = omp_get_wtime();
   //cpu_time = (fin-debut);
-  //printf("time in Cgl,Cgl2,sigma2=%4.3f s\n",cpu_time);
 
 
   /** - compute ksi, ksi+, ksi-, ksiX */
@@ -686,7 +683,6 @@ int lensing_init(
   }
   //fin = omp_get_wtime();
   //cpu_time = (fin-debut);
-  //printf("time in ksi=%4.3f s\n",cpu_time);
 
 
   /** - compute lensed Cls by integration */
@@ -726,7 +722,6 @@ int lensing_init(
   }
   //fin=omp_get_wtime();
   //cpu_time = (fin-debut);
-  //printf("time in final lensing computation=%4.3f s\n",cpu_time);
 
   /** - spline computed Cls in view of interpolation */
 

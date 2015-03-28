@@ -1918,65 +1918,6 @@ int input_read_parameters(
     mpi_print_bins();
 #endif //_DAM_DEBUG
 #else //_DAM_MPI
-    class_call(parser_read_list_of_doubles(pfc,"selection_mean",&(int1),&(pointer1),
-                                           &flag1,errmsg),errmsg,errmsg);
-    if ((flag1 == _TRUE_) && (int1>0)) {
-      class_test(int1 > _SELECTION_NUM_MAX_,errmsg,
-                 "you want to compute density Cl's for %d different bins, hence you should "
-		 "increase _SELECTION_NUM_MAX_ in include/transfer.h to at least this number",
-                 int1);
-
-      ptr->selection_num = int1;
-      for (i=0; i<int1; i++) {
-        class_test((pointer1[i] < 0.) || (pointer1[i] > 1000.),
-                   errmsg,
-                   "input of selection functions: you asked for a mean redshift equal to %e, sounds odd",
-                   pointer1[i]);
-        ptr->selection_mean[i] = pointer1[i];
-      }
-      ppt->selection_mean_min=pointer1[0];
-      free(pointer1);
-
-      /* first set all widths to default; correct eventually later */
-      for (i=1; i<int1; i++) {
-        class_test(ptr->selection_mean[i]<=ptr->selection_mean[i-1],errmsg,
-                   "input of selection functions: the list of mean redshifts must be passed in "
-		   "growing order; you entered %e before %e",ptr->selection_mean[i-1],ptr->selection_mean[i]);
-        ptr->selection_width[i] = ptr->selection_width[0];
-      }
-
-      class_call(parser_read_list_of_doubles(pfc,
-                                             "selection_width",
-                                             &(int1),
-                                             &(pointer1),
-                                             &flag1,
-                                             errmsg),
-                 errmsg,
-                 errmsg);
-
-      if ((flag1 == _TRUE_) && (int1>0)) {
-
-        if (int1==1) {
-          for (i=0; i<ptr->selection_num; i++) {
-            ptr->selection_width[i] = pointer1[0];
-          }
-        }
-        else if (int1==ptr->selection_num) {
-          for (i=0; i<int1; i++) {
-            ptr->selection_width[i] = pointer1[i];
-          }
-        }
-        else {
-          class_stop(errmsg,
-                     "In input for selection function, you asked for %d bin centers and %d "
-		     "bin widths; number of bins unclear; you should pass either one bin "
-		     "width (common to all bins) or %d bin witdths",
-                     ptr->selection_num,int1,ptr->selection_num);
-        }
-        free(pointer1);
-      }
-    }
-
     if (ptr->selection_num>1) {
       class_read_int("non_diagonal",psp->non_diag);
       if ((psp->non_diag<0) || (psp->non_diag>=ptr->selection_num))
@@ -2005,36 +1946,43 @@ int input_read_parameters(
     }
 
     class_call(parser_read_string(pfc,
-                                  "dNdz_evolution",
-                                  &(string1),
-                                  &(flag1),
-                                  errmsg),
-               errmsg,
-               errmsg);
-
-    if ((flag1 == _TRUE_)) {
-      if ((strstr(string1,"analytic") != NULL))
-        ptr->has_nz_evo_analytic = _TRUE_;
-      else{
-        ptr->has_nz_evo_file = _TRUE_;
-        class_read_string("dNdz_evolution",ptr->nz_evo_file_name);
-      }
-    }
-
-    class_call(parser_read_string(pfc,
                                   "bias_function",
                                   &(string1),
                                   &(flag1),
                                   errmsg),
                errmsg,
                errmsg);
-    
     if ((flag1 == _TRUE_)) {
       ptr->has_bz_file = _TRUE_;
       class_read_string("bias_function",ptr->bz_file_name);
     }
     class_read_double("bias",ptr->bias);
+
+    class_call(parser_read_string(pfc,
+                                  "s_bias_function",
+                                  &(string1),
+                                  &(flag1),
+                                  errmsg),
+               errmsg,
+               errmsg);
+    if ((flag1 == _TRUE_)) {
+      ptr->has_sz_file = _TRUE_;
+      class_read_string("s_bias_function",ptr->sz_file_name);
+    }
     class_read_double("s_bias",ptr->s_bias);
+
+    class_call(parser_read_string(pfc,
+                                  "e_bias_function",
+                                  &(string1),
+                                  &(flag1),
+                                  errmsg),
+               errmsg,
+               errmsg);
+    if ((flag1 == _TRUE_)) {
+      ptr->has_ez_file = _TRUE_;
+      class_read_string("e_bias_function",ptr->ez_file_name);
+    }
+    class_read_double("e_bias",ptr->e_bias);
 
   }
 
@@ -2662,10 +2610,8 @@ int input_default_params(
   ptr->initialise_HIS_cache=_FALSE_;
   ptr->has_nz_analytic = _FALSE_;
   ptr->has_nz_file = _FALSE_;
-  ptr->has_nz_evo_analytic = _FALSE_;
-  ptr->has_nz_evo_file = _FALSE_;
-  ptr->has_bz_analytic = _FALSE_;
   ptr->has_bz_file = _FALSE_;
+  ptr->has_sz_file = _FALSE_;
   ptr->bias = 1.;
   ptr->s_bias = 0.;
 

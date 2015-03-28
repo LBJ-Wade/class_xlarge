@@ -15,7 +15,8 @@ number counts in a large number of redshift bins:
    of redshift bins. This includes reading the bin redshifts and
    widths from a file and writing each cross-power spectrum in a
    separate file.
- - Implemented a z-dependent bias parameter.
+ - Implemented z-dependent bias, magnification bias and evolution
+   bias parameters.
 
 At the user end these modifications translate into some changes in the
 compilation and input parameters. The changes to the Makefile are
